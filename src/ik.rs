@@ -50,7 +50,7 @@ fn solve(target: Vec2, mut chain: Vec<(Entity, Vec2)>, clamp_angle: bool) -> Vec
     chain.reverse();
     chain[0].1 = target;
 
-    let mut prev_dir = None;
+    let mut prev_dir: Option<Vec2> = None;
 
     for i in 0..(chain.len() - 1) {
         let (_, pos) = chain[i];
@@ -60,10 +60,10 @@ fn solve(target: Vec2, mut chain: Vec<(Entity, Vec2)>, clamp_angle: bool) -> Vec
 
         if clamp_angle {
             if let Some(prev_dir) = prev_dir {
-                let angle = dir.angle_to(prev_dir);
+                let angle = prev_dir.angle_to(dir);
                 if angle > ANGLE_CONSTRAINT || angle < -ANGLE_CONSTRAINT {
                     let clamped_angle = angle.clamp(-ANGLE_CONSTRAINT, ANGLE_CONSTRAINT);
-                    let rotation = Mat2::from_angle(-clamped_angle);
+                    let rotation = Mat2::from_angle(clamped_angle);
                     dir = rotation * prev_dir;
                 }
             }
