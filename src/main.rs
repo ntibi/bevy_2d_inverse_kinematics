@@ -14,22 +14,21 @@ fn main() {
         .run();
 }
 
-fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
+fn spawn_arm(
+    pos: Vec2,
+    dir: Vec2,
+    len: usize,
+    color: Color,
+    commands: &mut Commands,
+    meshes: &mut Assets<Mesh>,
+    materials: &mut Assets<ColorMaterial>,
 ) {
-    commands.spawn(Camera2d);
-
-    let color = Color::srgb(0.0, 0.0, 1.0);
-
-    let n = 4;
     let mut entities = Vec::new();
 
-    for i in 0..n {
+    for i in 0..len {
         let id = commands
             .spawn((
-                Transform::from_translation(Vec3::new(i as f32 * 50., 0., 0.)),
+                Transform::from_translation((pos + dir * i as f32 * 20.).extend(0.)),
                 Mesh2d(meshes.add(Circle::new(10.0))),
                 MeshMaterial2d(materials.add(color)),
             ))
@@ -39,8 +38,28 @@ fn setup(
     }
 
     commands
-        .entity(entities[n - 1])
+        .entity(entities[len - 1])
         .insert(IKConstraint::new(entities, 10));
+}
+
+fn setup(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
+) {
+    commands.spawn(Camera2d);
+
+    let color = Color::srgb(0.0, 0.0, 1.0);
+
+    spawn_arm(
+        Vec2::new(0., 0.),
+        Vec2::new(1., 0.),
+        5,
+        color,
+        &mut commands,
+        &mut meshes,
+        &mut materials,
+    );
 }
 
 fn update_target(
