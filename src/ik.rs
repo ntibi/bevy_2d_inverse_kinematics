@@ -6,10 +6,10 @@ pub struct IKPlugin;
 
 impl Plugin for IKPlugin {
     fn build(&self, app: &mut App) {
-        //app.add_systems(
-        //PostUpdate,
-        //apply_ik.after(TransformSystem::TransformPropagate),
-        //);
+        app.add_systems(
+            PostUpdate,
+            apply_ik.after(TransformSystem::TransformPropagate),
+        );
     }
 }
 
