@@ -1,6 +1,5 @@
-use std::f32::consts::PI;
-
 use bevy::prelude::*;
+use std::f32::consts::PI;
 
 pub struct IKPlugin;
 
@@ -124,7 +123,6 @@ fn apply_ik(
             let anchor = chain[0].1;
 
             for _ in 0..constraint.iterations {
-                break; // TODO remove
                 chain = solve(
                     target,
                     chain,
@@ -159,15 +157,7 @@ fn apply_ik(
                 let (_, _, transform) = transforms.get(entity).unwrap();
                 let new_pos = new_pos.extend(transform.translation.z);
 
-                // TODO
-                // we have the parent global tr
-                // and the world pos we want (new_pos)
-                //
-                // we should be able to update transform and global transform
-                // so that they match the new_pos
-                //
-                // see reparented_to in bevy
-
+                // compute translation from world space to parent space
                 let new_translation = parent_global_tr
                     .compute_matrix()
                     .inverse()
@@ -177,7 +167,10 @@ fn apply_ik(
 
                 let (_, mut global_tr, mut transform) = transforms.get_mut(entity).unwrap();
                 transform.translation = new_translation;
-                //*global_tr = global_tr.mul_transform(Transform::from_translation(new_pos));
+                // here we re-do the job of propagate_transforms
+                // because we are scheduled to run after it's done (to have the hierarchy movement applied)
+                // but we still need the transform and global transform to be in synnc
+                *global_tr = parent_global_tr.mul_transform(*transform);
             }
         }
     }
