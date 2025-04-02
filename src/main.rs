@@ -22,7 +22,7 @@ fn spawn_arm(
     commands: &mut Commands,
     meshes: &mut Assets<Mesh>,
     materials: &mut Assets<ColorMaterial>,
-) {
+) -> Entity {
     let mut entities = Vec::new();
 
     for i in 0..len {
@@ -37,9 +37,13 @@ fn spawn_arm(
         entities.push(id);
     }
 
+    let last = entities[entities.len() - 1];
+
     commands
-        .entity(entities[len - 1])
+        .entity(last)
         .insert(IKConstraint::new(entities, 10));
+
+    last
 }
 
 fn setup(
