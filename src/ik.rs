@@ -1,4 +1,4 @@
-use bevy::{color, prelude::*};
+use bevy::prelude::*;
 
 pub struct IKPlugin;
 
@@ -10,24 +10,59 @@ impl Plugin for IKPlugin {
     }
 }
 
-#[derive(Reflect)]
+#[derive(Reflect, Copy, Clone)]
 pub struct DistanceConstraint {
     to: Entity,
     distance: f32,
 }
 
+/// this entity has one or multiple constraints
+/// constraints need to be two-way
+/// if entity A has a constraint to entity B, entity B needs to have the same constraint to entity A
+/// add them with `commands.add_constraint(e1, e2, dist)`
 #[derive(Component, Reflect, Deref, DerefMut)]
 pub struct Constrained(pub Vec<DistanceConstraint>);
 
-fn solve_constraint(pos: Vec2, transforms: Query<(&Transform, Option<&Constrained>)>) {}
+/// this entity is being manually moved, ignore constraints
+#[derive(Component)]
+pub struct Moved;
 
-fn update_constraints(mut transforms: Query<(&mut Transform, Option<&Constrained>)>) {
-    for (mut transform, constrained) in &mut transforms {
-        if let Some(constraints) = constrained {
-            for constraint in constraints.iter() {
-                let src = transform.translation.xy();
-                //let dst = transforms.get(constraint.to).unwrap().0.translation.xy();
-            }
+// TODO prevent infinite recursion by keeping track of which entities have been solved
+fn solve_constraint(
+    entity: Entity,
+    pos: Vec2,
+    to: Entity,
+    distance: f32,
+    transforms: &mut Query<(Entity, &mut Transform, &Constrained), Without<Moved>>,
+) {
+    // solve this constraint
+    let (new_entity, mut transform, constraints) = transforms.get_mut(to).unwrap();
+
+    let dir = (transform.translation.xy() - pos).normalize();
+    transform.translation = (pos + dir * distance).extend(transform.translation.z);
+
+    // recursively solve constraints
+    let new_pos = transform.translation.xy();
+    for &DistanceConstraint { to, distance } in constraints.0.clone().iter() {
+        if to != entity {
+            solve_constraint(new_entity, new_pos, to, distance, transforms);
+        }
+    }
+}
+
+fn update_constraints(
+    moved_transforms: Query<(Entity, &Transform, &Constrained), With<Moved>>,
+    mut transforms: Query<(Entity, &mut Transform, &Constrained), Without<Moved>>,
+) {
+    for (entity, transform, constraints) in moved_transforms.iter() {
+        for &DistanceConstraint { to, distance } in constraints.iter() {
+            solve_constraint(
+                entity,
+                transform.translation.xy(),
+                to,
+                distance,
+                &mut transforms,
+            );
         }
     }
 }
