@@ -11,9 +11,11 @@ fn main() {
         .add_plugins(IKPlugin)
         .add_systems(Startup, setup)
         .add_systems(Update, update_target)
+        .add_systems(Update, move_animal)
         .run();
 }
 
+// returns the anchor and the effector
 fn spawn_arm(
     pos: Vec2,
     dir: Vec2,
@@ -22,7 +24,7 @@ fn spawn_arm(
     commands: &mut Commands,
     meshes: &mut Assets<Mesh>,
     materials: &mut Assets<ColorMaterial>,
-) -> Entity {
+) -> (Entity, Entity) {
     let mut entities = Vec::new();
 
     for i in 0..len {
@@ -37,14 +39,18 @@ fn spawn_arm(
         entities.push(id);
     }
 
-    let last = entities[entities.len() - 1];
+    let anchor = entities[0];
+    let effector = entities[entities.len() - 1];
 
     commands
-        .entity(last)
+        .entity(effector)
         .insert(IKConstraint::new(entities, 10));
 
-    last
+    (anchor, effector)
 }
+
+#[derive(Component)]
+struct AnimalThingy;
 
 fn setup(
     mut commands: Commands,
@@ -64,6 +70,61 @@ fn setup(
         &mut meshes,
         &mut materials,
     );
+
+    commands
+        // body
+        .spawn((
+            Transform::from_translation(Vec3::new(0., 0., 1.)),
+            Mesh2d(meshes.add(Ellipse::new(20.0, 30.))),
+            MeshMaterial2d(materials.add(color)),
+            AnimalThingy,
+        ))
+        .with_children(|parent| {
+            // left eye
+            parent.spawn((
+                Transform::from_translation(Vec3::new(-10., 25., 1.)),
+                Mesh2d(meshes.add(Circle::new(5.0))),
+                MeshMaterial2d(materials.add(Color::srgba(1., 0., 0., 1.))),
+            ));
+            // right eye
+            parent.spawn((
+                Transform::from_translation(Vec3::new(10., 25., 1.)),
+                Mesh2d(meshes.add(Circle::new(5.0))),
+                MeshMaterial2d(materials.add(Color::srgba(1., 0., 0., 1.))),
+            ));
+        });
+}
+
+const SPEED: f32 = 5.;
+const ROTATION_SPEED: f32 = 0.1;
+
+fn move_animal(
+    keyboard_input: Res<ButtonInput<KeyCode>>,
+    mut query: Query<&mut Transform, With<AnimalThingy>>,
+) {
+    for mut transform in query.iter_mut() {
+        let mut dir = Vec2::ZERO;
+        let mut rotation = 0.;
+
+        if keyboard_input.pressed(KeyCode::KeyW) {
+            dir += Vec2::Y;
+        }
+
+        if keyboard_input.pressed(KeyCode::KeyS) {
+            dir -= Vec2::Y;
+        }
+
+        if keyboard_input.pressed(KeyCode::KeyA) {
+            rotation = ROTATION_SPEED;
+        }
+        if keyboard_input.pressed(KeyCode::KeyD) {
+            rotation = -ROTATION_SPEED;
+        }
+
+        transform.rotation *= Quat::from_rotation_z(rotation);
+        let tr = transform.rotation.mul_vec3(dir.extend(0.) * SPEED);
+        transform.translation += tr;
+    }
 }
 
 fn update_target(
