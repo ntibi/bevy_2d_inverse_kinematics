@@ -74,6 +74,11 @@ fn show_constraints(transforms: Query<(&Transform, Option<&Constrained>)>, mut g
                 let src = transform.translation.xy();
                 let dst = transforms.get(constraint.to).unwrap().0.translation.xy();
                 gizmos.line_2d(src, dst, Color::srgba(0.0, 0.0, 1.0, 0.5));
+                gizmos.ray_2d(
+                    src,
+                    10. * transform.rotation.mul_vec3(Vec3::X).truncate().normalize(),
+                    Color::srgba(1.0, 0.0, 0.0, 1.),
+                );
             }
         }
     }
