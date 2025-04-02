@@ -44,7 +44,8 @@ fn setup(
 
 fn on_drag_move(drag: Trigger<Pointer<Drag>>, mut transforms: Query<&mut Transform>) {
     if let Ok(mut transform) = transforms.get_mut(drag.entity()) {
-        transform.translation += Vec3::new(drag.delta.x, -drag.delta.y, 0.0);
+        let delta = Vec2::new(drag.delta.x, -drag.delta.y);
+        transform.translation += delta.extend(0.0);
     }
 }
 
