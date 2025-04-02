@@ -23,6 +23,12 @@ pub struct DistanceConstraint {
 #[derive(Component, Reflect, Deref, DerefMut)]
 pub struct Constrained(pub Vec<DistanceConstraint>);
 
+/// max angle this entity can maintain with its two neighbours
+/// PI means no constraints
+/// PI / 2 means it cannot have an angle smaller than 90 degrees
+#[derive(Component, Reflect, Deref, DerefMut)]
+pub struct MaxBend(pub f32);
+
 /// this entity is being manually moved, ignore constraints
 #[derive(Component)]
 pub struct Moved;
@@ -33,26 +39,57 @@ fn solve_constraint(
     pos: Vec2,
     to: Entity,
     distance: f32,
-    transforms: &mut Query<(Entity, &mut Transform, &Constrained), Without<Moved>>,
+    transforms: &mut Query<
+        (Entity, &mut Transform, &Constrained, Option<&MaxBend>),
+        Without<Moved>,
+    >,
 ) {
     // solve this constraint
-    let (new_entity, mut transform, constraints) = transforms.get_mut(to).unwrap();
+    let (new_entity, mut transform, constraints, max_bend) = transforms.get_mut(to).unwrap();
 
+    // vector between parent and current entity
     let dir = (transform.translation.xy() - pos).normalize();
     transform.translation = (pos + dir * distance).extend(transform.translation.z);
 
-    // recursively solve constraints
-    let new_pos = transform.translation.xy();
-    for &DistanceConstraint { to, distance } in constraints.0.clone().iter() {
-        if to != entity {
-            solve_constraint(new_entity, new_pos, to, distance, transforms);
+    let remaining_constraints = constraints
+        .iter()
+        .filter(|c| c.to != entity)
+        .copied()
+        .collect::<Vec<_>>();
+
+    // pos of the current entity
+    let current_pos = transform.translation.xy();
+
+    if let Some(&MaxBend(max_angle)) = max_bend {
+        // vector between current and next entities
+        if !remaining_constraints.is_empty() {
+            let next_pos = remaining_constraints
+                .iter()
+                .map(|DistanceConstraint { to, .. }| {
+                    transforms.get(*to).unwrap().1.translation.xy()
+                })
+                .sum::<Vec2>();
+            let next_dir = (next_pos - current_pos).normalize();
+
+            // angle between the two vectors
+            let angle = dir.angle_to(next_dir);
+            if !(angle >= -max_angle && angle <= max_angle) {
+                // TODO apply angle constraint
+                // not sure if i should move the current entity
+                // or the next entity
+            }
         }
+    }
+
+    // recursively solve constraints
+    for DistanceConstraint { to, distance } in remaining_constraints {
+        solve_constraint(new_entity, current_pos, to, distance, transforms);
     }
 }
 
 fn update_constraints(
     moved_transforms: Query<(Entity, &Transform, &Constrained), With<Moved>>,
-    mut transforms: Query<(Entity, &mut Transform, &Constrained), Without<Moved>>,
+    mut transforms: Query<(Entity, &mut Transform, &Constrained, Option<&MaxBend>), Without<Moved>>,
 ) {
     for (entity, transform, constraints) in moved_transforms.iter() {
         for &DistanceConstraint { to, distance } in constraints.iter() {

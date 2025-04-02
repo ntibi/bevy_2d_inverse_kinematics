@@ -1,3 +1,5 @@
+use std::f32::consts::PI;
+
 use bevy::prelude::*;
 
 mod ik;
@@ -23,12 +25,13 @@ fn setup(
     let color = Color::srgb(0.0, 0.0, 1.0);
     let mut prev = None;
 
-    for i in 0..10 {
+    for i in 0..3 {
         let id = commands
             .spawn((
                 Transform::from_translation(Vec3::new(i as f32 * 50., 0., 0.)),
                 Mesh2d(meshes.add(Circle::new(10.0))),
                 MeshMaterial2d(materials.add(color)),
+                MaxBend(PI / 2.0),
             ))
             .observe(on_drag_start)
             .observe(on_drag_move)
