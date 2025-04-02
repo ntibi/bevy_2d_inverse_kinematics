@@ -1,6 +1,8 @@
+use bevy::prelude::*;
 use std::f32::consts::PI;
 
-use bevy::prelude::*;
+// subset of the capabilities of the IK plugin
+// im just keeping it for future reference
 
 mod constraint;
 
