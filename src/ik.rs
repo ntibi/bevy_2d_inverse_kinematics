@@ -6,7 +6,10 @@ pub struct IKPlugin;
 
 impl Plugin for IKPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(PostUpdate, apply_ik);
+        //app.add_systems(
+        //PostUpdate,
+        //apply_ik.after(TransformSystem::TransformPropagate),
+        //);
     }
 }
 
@@ -101,18 +104,27 @@ fn solve(
     chain
 }
 
-fn apply_ik(ik_constraints: Query<&IKConstraint>, mut transforms: Query<&mut Transform>) {
+fn apply_ik(
+    ik_constraints: Query<&IKConstraint>,
+    mut transforms: Query<(Option<&Parent>, &mut GlobalTransform, &mut Transform)>,
+) {
     for constraint in ik_constraints.iter() {
         if let Some(target) = constraint.target {
             let mut chain = constraint
                 .chain
                 .iter()
-                .map(|entity| (*entity, transforms.get(*entity).unwrap().translation.xy()))
+                .map(|entity| {
+                    (
+                        *entity,
+                        transforms.get(*entity).unwrap().1.translation().xy(),
+                    )
+                })
                 .collect::<Vec<_>>();
 
             let anchor = chain[0].1;
 
             for _ in 0..constraint.iterations {
+                break; // TODO remove
                 chain = solve(
                     target,
                     chain,
@@ -137,8 +149,35 @@ fn apply_ik(ik_constraints: Query<&IKConstraint>, mut transforms: Query<&mut Tra
             }
 
             for (entity, new_pos) in chain {
-                let mut transform = transforms.get_mut(entity).unwrap();
-                transform.translation = new_pos.extend(transform.translation.z);
+                let (parent, _, _) = transforms.get(entity).unwrap();
+                let Some(parent) = parent else {
+                    panic!("entity {} of an ik chain has no parent", entity);
+                };
+
+                let (_, parent_global_tr, _) = transforms.get(**parent).unwrap();
+                let parent_global_tr = parent_global_tr.clone();
+                let (_, _, transform) = transforms.get(entity).unwrap();
+                let new_pos = new_pos.extend(transform.translation.z);
+
+                // TODO
+                // we have the parent global tr
+                // and the world pos we want (new_pos)
+                //
+                // we should be able to update transform and global transform
+                // so that they match the new_pos
+                //
+                // see reparented_to in bevy
+
+                let new_translation = parent_global_tr
+                    .compute_matrix()
+                    .inverse()
+                    .transform_point3(new_pos)
+                    .xy()
+                    .extend(transform.translation.z);
+
+                let (_, mut global_tr, mut transform) = transforms.get_mut(entity).unwrap();
+                transform.translation = new_translation;
+                //*global_tr = global_tr.mul_transform(Transform::from_translation(new_pos));
             }
         }
     }

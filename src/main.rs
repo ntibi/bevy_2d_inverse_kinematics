@@ -19,24 +19,32 @@ fn main() {
 
 // returns the anchor and the effector
 fn spawn_arm(
-    pos: Vec3,
+    pos: Vec2,
     dir: Vec2,
     len: usize,
     color: Color,
     commands: &mut Commands,
     meshes: &mut Assets<Mesh>,
     materials: &mut Assets<ColorMaterial>,
-) -> (Entity, Entity) {
+) -> Entity {
     let mut entities = Vec::new();
 
     for i in 0..len {
         let id = commands
             .spawn((
-                Transform::from_translation((pos.xy() + dir * i as f32 * 20.).extend(pos.z)),
+                Transform::from_translation(pos.extend(1.)),
+                // we set the global transform, so that set_parent_in_place works on the same frame
+                GlobalTransform::from_translation(
+                    (pos + dir.normalize() * i as f32 * 6.).extend(1. + i as f32),
+                ),
                 Mesh2d(meshes.add(Circle::new(3.0))),
                 MeshMaterial2d(materials.add(color)),
             ))
             .id();
+
+        if let Some(prev) = entities.last() {
+            commands.entity(id).set_parent_in_place(*prev);
+        }
 
         entities.push(id);
     }
@@ -51,7 +59,7 @@ fn spawn_arm(
             .with_angle_constraint(3. * PI / 4.),
     );
 
-    (anchor, effector)
+    anchor
 }
 
 #[derive(Component)]
@@ -91,8 +99,8 @@ fn setup(
         .id();
 
     // bottom right arm
-    let (anchor, _) = spawn_arm(
-        Vec3::new(12., -17., 1.),
+    let anchor = spawn_arm(
+        Vec2::new(12., -17.),
         Vec2::new(1., 0.),
         5,
         color,
