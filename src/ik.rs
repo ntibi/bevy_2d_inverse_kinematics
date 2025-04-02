@@ -15,7 +15,11 @@ pub struct IKConstraint {
     /// path from the anchor of the constraint to the entity holding this component
     chain: Vec<Entity>,
 
+    /// max number of iterations to solve the IK constraint
     iterations: usize,
+
+    /// epsilon to consider the constraint solved
+    epsilon: f32,
 }
 
 impl IKConstraint {
@@ -24,6 +28,7 @@ impl IKConstraint {
             target: None,
             chain,
             iterations,
+            epsilon: 1.0,
         }
     }
 
@@ -70,6 +75,10 @@ fn apply_ik(ik_constraints: Query<&IKConstraint>, mut transforms: Query<&mut Tra
                 chain.reverse();
                 chain = solve(anchor, chain);
                 chain.reverse();
+
+                if chain[chain.len() - 1].1.distance(target) < constraint.epsilon {
+                    break;
+                }
             }
 
             for (entity, new_pos) in chain {
