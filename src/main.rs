@@ -23,7 +23,7 @@ fn setup(
 
     let color = Color::srgb(0.0, 0.0, 1.0);
 
-    let n = 10;
+    let n = 7;
     let mut entities = Vec::new();
 
     for i in 0..n {
@@ -40,7 +40,7 @@ fn setup(
 
     commands
         .entity(entities[n - 1])
-        .insert(IKConstraint::new(entities));
+        .insert(IKConstraint::new(entities, 10));
 }
 
 fn update_target(

@@ -14,13 +14,16 @@ pub struct IKConstraint {
     target: Option<Vec2>,
     /// path from the anchor of the constraint to the entity holding this component
     chain: Vec<Entity>,
+
+    iterations: usize,
 }
 
 impl IKConstraint {
-    pub fn new(chain: Vec<Entity>) -> Self {
+    pub fn new(chain: Vec<Entity>, iterations: usize) -> Self {
         Self {
             target: None,
             chain,
+            iterations,
         }
     }
 
@@ -54,13 +57,20 @@ fn solve(target: Vec2, mut chain: Vec<(Entity, Vec2)>) -> Vec<(Entity, Vec2)> {
 fn apply_ik(ik_constraints: Query<&IKConstraint>, mut transforms: Query<&mut Transform>) {
     for constraint in ik_constraints.iter() {
         if let Some(target) = constraint.target {
-            let chain = constraint
+            let mut chain = constraint
                 .chain
                 .iter()
                 .map(|entity| (*entity, transforms.get(*entity).unwrap().translation.xy()))
                 .collect::<Vec<_>>();
 
-            let chain = solve(target, chain);
+            let anchor = chain[0].1;
+
+            for _ in 0..constraint.iterations {
+                chain = solve(target, chain);
+                chain.reverse();
+                chain = solve(anchor, chain);
+                chain.reverse();
+            }
 
             for (entity, new_pos) in chain {
                 let mut transform = transforms.get_mut(entity).unwrap();
