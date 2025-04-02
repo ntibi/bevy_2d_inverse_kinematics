@@ -1,6 +1,6 @@
 use std::f32::consts::PI;
 
-use bevy::prelude::*;
+use bevy::{prelude::*, window::PrimaryWindow};
 
 mod ik;
 
@@ -12,6 +12,7 @@ fn main() {
         .add_plugins(MeshPickingPlugin)
         .add_plugins(IKPlugin)
         .add_systems(Startup, setup)
+        .add_systems(Update, update_target)
         .run();
 }
 
@@ -23,39 +24,42 @@ fn setup(
     commands.spawn(Camera2d);
 
     let color = Color::srgb(0.0, 0.0, 1.0);
-    let mut prev = None;
 
-    for i in 0..3 {
+    let n = 10;
+    let mut entities = Vec::new();
+
+    for i in 0..n {
         let id = commands
             .spawn((
                 Transform::from_translation(Vec3::new(i as f32 * 50., 0., 0.)),
                 Mesh2d(meshes.add(Circle::new(10.0))),
                 MeshMaterial2d(materials.add(color)),
-                MaxBend(PI / 2.0),
             ))
-            .observe(on_drag_start)
-            .observe(on_drag_move)
-            .observe(on_drag_end)
             .id();
-        if let Some(prev) = prev {
-            commands.add_constraint(prev, id, 50.0);
+
+        entities.push(id);
+    }
+
+    commands
+        .entity(entities[n - 1])
+        .insert(IKConstraint::new(entities));
+}
+
+fn update_target(
+    primary_window: Single<&Window, With<PrimaryWindow>>,
+    camera: Single<(&Camera, &GlobalTransform)>,
+    mut query: Query<&mut IKConstraint>,
+) {
+    let (main_camera, main_camera_transform) = *camera;
+    let pos = primary_window.cursor_position().and_then(|cursor_pos| {
+        main_camera
+            .viewport_to_world_2d(main_camera_transform, cursor_pos)
+            .ok()
+    });
+
+    if let Some(pos) = pos {
+        for mut constraint in query.iter_mut() {
+            constraint.target(pos);
         }
-
-        prev = Some(id);
     }
-}
-
-fn on_drag_move(drag: Trigger<Pointer<Drag>>, mut transforms: Query<&mut Transform>) {
-    if let Ok(mut transform) = transforms.get_mut(drag.entity()) {
-        let delta = Vec2::new(drag.delta.x, -drag.delta.y);
-        transform.translation += delta.extend(0.0);
-    }
-}
-
-fn on_drag_start(drag: Trigger<Pointer<DragStart>>, mut commands: Commands) {
-    commands.entity(drag.entity()).insert(Moved);
-}
-
-fn on_drag_end(drag: Trigger<Pointer<DragEnd>>, mut commands: Commands) {
-    commands.entity(drag.entity()).remove::<Moved>();
 }
