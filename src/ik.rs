@@ -44,7 +44,7 @@ impl IKConstraint {
 }
 
 const DIST_CONSTRAINT: f32 = 50.0;
-const ANGLE_CONSTRAINT: f32 = PI / 2.;
+const ANGLE_CONSTRAINT: f32 = 3. * PI / 4.;
 
 fn solve(target: Vec2, mut chain: Vec<(Entity, Vec2)>, clamp_angle: bool) -> Vec<(Entity, Vec2)> {
     chain.reverse();

@@ -23,7 +23,7 @@ fn setup(
 
     let color = Color::srgb(0.0, 0.0, 1.0);
 
-    let n = 3;
+    let n = 4;
     let mut entities = Vec::new();
 
     for i in 0..n {
