@@ -30,11 +30,18 @@ fn setup(
                 Mesh2d(meshes.add(Circle::new(10.0))),
                 MeshMaterial2d(materials.add(color)),
             ))
+            .observe(on_drag_move)
             .id();
         if let Some(prev) = prev {
             commands.add_constraint(prev, id, 50.0);
         }
 
         prev = Some(id);
+    }
+}
+
+fn on_drag_move(drag: Trigger<Pointer<Drag>>, mut transforms: Query<&mut Transform>) {
+    if let Ok(mut transform) = transforms.get_mut(drag.entity()) {
+        transform.translation += Vec3::new(drag.delta.x, -drag.delta.y, 0.0);
     }
 }
