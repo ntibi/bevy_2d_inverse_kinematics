@@ -1,3 +1,5 @@
+use std::f32::consts::PI;
+
 use bevy::prelude::*;
 
 pub struct IKPlugin;
@@ -42,17 +44,32 @@ impl IKConstraint {
 }
 
 const DIST_CONSTRAINT: f32 = 50.0;
+const ANGLE_CONSTRAINT: f32 = PI / 2.;
 
 fn solve(target: Vec2, mut chain: Vec<(Entity, Vec2)>) -> Vec<(Entity, Vec2)> {
     chain.reverse();
     chain[0].1 = target;
 
+    let mut prev_dir = None;
+
     for i in 0..(chain.len() - 1) {
         let (_, pos) = chain[i];
         let (_, ref mut next_pos) = chain[i + 1];
 
-        let dir = (*next_pos - pos).normalize();
+        let mut dir = (*next_pos - pos).normalize();
+
+        if let Some(prev_dir) = prev_dir {
+            let angle = dir.angle_to(prev_dir);
+            if angle > ANGLE_CONSTRAINT || angle < -ANGLE_CONSTRAINT {
+                let clamped_angle = angle.clamp(-ANGLE_CONSTRAINT, ANGLE_CONSTRAINT);
+                let rotation = Quat::from_rotation_z(clamped_angle);
+                dir = rotation.mul_vec3(prev_dir.extend(0.)).xy();
+            }
+        }
+
         *next_pos = pos + dir * DIST_CONSTRAINT;
+
+        prev_dir = Some(dir);
     }
 
     chain.reverse();
