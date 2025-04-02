@@ -1,3 +1,5 @@
+use std::f32::consts::PI;
+
 use bevy::{prelude::*, window::PrimaryWindow};
 
 mod ik;
@@ -17,7 +19,7 @@ fn main() {
 
 // returns the anchor and the effector
 fn spawn_arm(
-    pos: Vec2,
+    pos: Vec3,
     dir: Vec2,
     len: usize,
     color: Color,
@@ -30,8 +32,8 @@ fn spawn_arm(
     for i in 0..len {
         let id = commands
             .spawn((
-                Transform::from_translation((pos + dir * i as f32 * 20.).extend(0.)),
-                Mesh2d(meshes.add(Circle::new(10.0))),
+                Transform::from_translation((pos.xy() + dir * i as f32 * 20.).extend(pos.z)),
+                Mesh2d(meshes.add(Circle::new(3.0))),
                 MeshMaterial2d(materials.add(color)),
             ))
             .id();
@@ -42,9 +44,12 @@ fn spawn_arm(
     let anchor = entities[0];
     let effector = entities[entities.len() - 1];
 
-    commands
-        .entity(effector)
-        .insert(IKConstraint::new(entities, 10));
+    commands.entity(effector).insert(
+        IKConstraint::new(entities)
+            .with_iterations(10)
+            .with_distance_constraint(6.)
+            .with_angle_constraint(3. * PI / 4.),
+    );
 
     (anchor, effector)
 }
@@ -61,17 +66,7 @@ fn setup(
 
     let color = Color::srgb(0.0, 0.0, 1.0);
 
-    spawn_arm(
-        Vec2::new(0., 0.),
-        Vec2::new(1., 0.),
-        5,
-        color,
-        &mut commands,
-        &mut meshes,
-        &mut materials,
-    );
-
-    commands
+    let id = commands
         // body
         .spawn((
             Transform::from_translation(Vec3::new(0., 0., 1.)),
@@ -92,7 +87,20 @@ fn setup(
                 Mesh2d(meshes.add(Circle::new(5.0))),
                 MeshMaterial2d(materials.add(Color::srgba(1., 0., 0., 1.))),
             ));
-        });
+        })
+        .id();
+
+    // bottom right arm
+    let (anchor, _) = spawn_arm(
+        Vec3::new(12., -17., 1.),
+        Vec2::new(1., 0.),
+        5,
+        color,
+        &mut commands,
+        &mut meshes,
+        &mut materials,
+    );
+    commands.entity(id).add_child(anchor);
 }
 
 const SPEED: f32 = 5.;

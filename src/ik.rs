@@ -22,16 +22,36 @@ pub struct IKConstraint {
 
     /// epsilon to consider the constraint solved
     epsilon: f32,
+
+    distance_constraint: f32,
+    angle_constraint: f32,
 }
 
 impl IKConstraint {
-    pub fn new(chain: Vec<Entity>, iterations: usize) -> Self {
+    pub fn new(chain: Vec<Entity>) -> Self {
         Self {
             target: None,
             chain,
-            iterations,
+            iterations: 10,
             epsilon: 1.0,
+            distance_constraint: 10.,
+            angle_constraint: 3. * PI / 4.,
         }
+    }
+
+    pub fn with_iterations(mut self, iterations: usize) -> Self {
+        self.iterations = iterations;
+        self
+    }
+
+    pub fn with_distance_constraint(mut self, distance_constraint: f32) -> Self {
+        self.distance_constraint = distance_constraint;
+        self
+    }
+
+    pub fn with_angle_constraint(mut self, angle_constraint: f32) -> Self {
+        self.angle_constraint = angle_constraint;
+        self
     }
 
     pub fn target(&mut self, target: Vec2) {
@@ -43,10 +63,13 @@ impl IKConstraint {
     }
 }
 
-const DIST_CONSTRAINT: f32 = 50.0;
-const ANGLE_CONSTRAINT: f32 = 3. * PI / 4.;
-
-fn solve(target: Vec2, mut chain: Vec<(Entity, Vec2)>, clamp_angle: bool) -> Vec<(Entity, Vec2)> {
+fn solve(
+    target: Vec2,
+    mut chain: Vec<(Entity, Vec2)>,
+    dist: f32,
+    max_angle: f32,
+    clamp_angle: bool,
+) -> Vec<(Entity, Vec2)> {
     chain.reverse();
     chain[0].1 = target;
 
@@ -61,15 +84,15 @@ fn solve(target: Vec2, mut chain: Vec<(Entity, Vec2)>, clamp_angle: bool) -> Vec
         if clamp_angle {
             if let Some(prev_dir) = prev_dir {
                 let angle = prev_dir.angle_to(dir);
-                if angle > ANGLE_CONSTRAINT || angle < -ANGLE_CONSTRAINT {
-                    let clamped_angle = angle.clamp(-ANGLE_CONSTRAINT, ANGLE_CONSTRAINT);
+                if angle > max_angle || angle < -max_angle {
+                    let clamped_angle = angle.clamp(-max_angle, max_angle);
                     let rotation = Mat2::from_angle(clamped_angle);
                     dir = rotation * prev_dir;
                 }
             }
         }
 
-        *next_pos = pos + dir * DIST_CONSTRAINT;
+        *next_pos = pos + dir * dist;
 
         prev_dir = Some(dir);
     }
@@ -90,10 +113,22 @@ fn apply_ik(ik_constraints: Query<&IKConstraint>, mut transforms: Query<&mut Tra
             let anchor = chain[0].1;
 
             for _ in 0..constraint.iterations {
-                chain = solve(target, chain, false);
+                chain = solve(
+                    target,
+                    chain,
+                    constraint.distance_constraint,
+                    constraint.angle_constraint,
+                    false,
+                );
                 chain.reverse();
                 // only apply rotation constraint on the backward pass
-                chain = solve(anchor, chain, true);
+                chain = solve(
+                    anchor,
+                    chain,
+                    constraint.distance_constraint,
+                    constraint.angle_constraint,
+                    true,
+                );
                 chain.reverse();
 
                 if chain[chain.len() - 1].1.distance(target) < constraint.epsilon {
