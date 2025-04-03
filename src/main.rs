@@ -25,7 +25,8 @@ fn spawn_arm(
     dir: Vec2,
     len: usize,
     dist_constraint: f32,
-    color: Color,
+    start_color: Color,
+    end_color: Color,
     commands: &mut Commands,
     meshes: &mut Assets<Mesh>,
     materials: &mut Assets<ColorMaterial>,
@@ -38,11 +39,18 @@ fn spawn_arm(
     for i in 0..len {
         let id = commands
             .spawn((
-                Transform::from_translation(pos.extend(1.)),
+                Transform::from_translation(pos.extend(-1.)),
                 // we set the global transform, so that set_parent_in_place works on the same frame
                 GlobalTransform::from_translation(get_limb_world_pos(i)),
                 Mesh2d(meshes.add(Circle::new(3.0))),
-                MeshMaterial2d(materials.add(color)),
+                MeshMaterial2d(
+                    materials.add(Color::from(LinearRgba::from_vec4(
+                        start_color
+                            .to_linear()
+                            .to_vec4()
+                            .lerp(end_color.to_linear().to_vec4(), i as f32 / len as f32),
+                    ))),
+                ),
             ))
             .id();
 
@@ -93,6 +101,7 @@ fn setup(
     commands.spawn(Camera2d);
 
     let color = Color::srgb(0.0, 0.0, 1.0);
+    let hand_color = Color::srgb(0.0, 0.0, 0.5);
 
     let id = commands
         // body
@@ -130,6 +139,7 @@ fn setup(
         parts,
         dist_constraint,
         color,
+        hand_color,
         &mut commands,
         &mut meshes,
         &mut materials,
