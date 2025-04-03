@@ -56,6 +56,11 @@ impl IKConstraint {
         self
     }
 
+    pub fn with_target(mut self, target: Vec2) -> Self {
+        self.target = Some(target);
+        self
+    }
+
     pub fn target(&mut self, target: Vec2) {
         self.target = Some(target);
     }
