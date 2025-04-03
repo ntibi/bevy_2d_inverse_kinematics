@@ -87,10 +87,6 @@ struct FootZone {
     foot_entity: Entity,
     max_distance: f32,
 
-    /// if set, the foot will translate to this position
-    /// (position is relative to the foot zone transform)
-    next_step: Option<Vec2>,
-
     /// default position for the next step
     default_next_step: Vec2,
 }
@@ -137,7 +133,7 @@ fn setup(
 
     // bottom right leg
     let pos = Vec2::new(12., -17.);
-    let next_step = Vec2::new(18., 9.);
+    let next_step = Vec2::new(14., 2.);
     let (anchor, effector) = spawn_arm(
         pos,
         Vec2::new(1., 0.),
@@ -154,7 +150,6 @@ fn setup(
         FootZone {
             max_distance,
             foot_entity: effector,
-            next_step: None,
             default_next_step: next_step,
         },
         Transform::from_translation(pos.extend(0.)),
@@ -162,7 +157,7 @@ fn setup(
 
     // bottom left leg
     let pos = Vec2::new(-12., -17.);
-    let next_step = Vec2::new(-18., 9.);
+    let next_step = Vec2::new(-14., 2.);
     let (anchor, effector) = spawn_arm(
         pos,
         Vec2::new(-1., 0.),
@@ -179,7 +174,6 @@ fn setup(
         FootZone {
             max_distance,
             foot_entity: effector,
-            next_step: None,
             default_next_step: next_step,
         },
         Transform::from_translation(pos.extend(0.)),
@@ -187,7 +181,7 @@ fn setup(
 
     // top right leg
     let pos = Vec2::new(12., 17.);
-    let next_step = Vec2::new(15., 10.);
+    let next_step = Vec2::new(15., 3.);
     let (anchor, effector) = spawn_arm(
         pos,
         Vec2::new(1., 0.),
@@ -204,7 +198,6 @@ fn setup(
         FootZone {
             max_distance,
             foot_entity: effector,
-            next_step: None,
             default_next_step: next_step,
         },
         Transform::from_translation(pos.extend(0.)),
@@ -212,7 +205,7 @@ fn setup(
 
     // top left leg
     let pos = Vec2::new(-12., 17.);
-    let next_step = Vec2::new(-15., 10.);
+    let next_step = Vec2::new(-15., 3.);
     let (anchor, effector) = spawn_arm(
         pos,
         Vec2::new(-1., 0.),
@@ -229,7 +222,6 @@ fn setup(
         FootZone {
             max_distance,
             foot_entity: effector,
-            next_step: None,
             default_next_step: next_step,
         },
         Transform::from_translation(pos.extend(0.)),
@@ -285,14 +277,12 @@ fn move_animal(mut query: Query<(&mut Transform, &Velocity, &AngularVelocity)>, 
 }
 
 fn compute_foot_placement(
-    agent: Query<(&Transform, &Velocity), With<AnimalThingy>>,
-    mut foot_zones: Query<(&GlobalTransform, &mut FootZone, &Parent)>,
-    time: Res<Time>,
+    _agent: Query<(&Transform, &Velocity), With<AnimalThingy>>,
+    mut foot_zones: Query<(&GlobalTransform, &FootZone, &Parent)>,
     mut effectors: Query<(&mut IKConstraint, &GlobalTransform)>,
-    mut gizmos: Gizmos,
 ) {
-    for (transform, mut foot_zone, parent) in foot_zones.iter_mut() {
-        let (agent_transform, agent_vel) = agent.get(**parent).unwrap();
+    for (transform, foot_zone, _parent) in foot_zones.iter_mut() {
+        //let (agent_transform, agent_vel) = agent.get(**parent).unwrap();
 
         let (mut effector, foot_pos) = effectors.get_mut(foot_zone.foot_entity).unwrap();
         let foot_pos = foot_pos.translation().xy();
@@ -302,7 +292,8 @@ fn compute_foot_placement(
                 .rotation()
                 .mul_vec3(foot_zone.default_next_step.extend(0.))
                 .xy();
-        gizmos.circle_2d(default_next_step, 3., Color::srgb(1., 0., 0.));
+
+        //gizmos.circle_2d(default_next_step, 3., Color::srgb(1., 0., 0.));
 
         //let movement_dir = agent_transform
         //.rotation
@@ -310,8 +301,8 @@ fn compute_foot_placement(
         //.xy()
         //.normalize_or_zero();
 
-        gizmos.circle_2d(foot_pos, 1., Color::srgb(0., 1., 1.));
-        gizmos.circle_2d(base_pos, foot_zone.max_distance, Color::srgb(0., 1., 0.));
+        //gizmos.circle_2d(foot_pos, 1., Color::srgb(0., 1., 1.));
+        //gizmos.circle_2d(base_pos, foot_zone.max_distance, Color::srgb(0., 1., 0.));
         if foot_pos.distance(base_pos) > foot_zone.max_distance {
             effector.target(default_next_step);
         }
