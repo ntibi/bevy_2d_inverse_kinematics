@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<!-- stolen from https://github.com/fabienjuif/bevy_game_test/blob/main/web/index.html -->
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>FABRIK demo</title>
+    <style>
+      body {
+        background: linear-gradient(45deg, #4b0082 0%, #8a2be2 100%);
+        background-repeat: no-repeat;
+        background-size: cover;
+        height: 100vh;
+        margin: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        color: #ffffff;
+      }
+
+      h1 {
+        font-size: 2.5em;
+        text-align: center;
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+        padding: 2em;
+        margin: 0; /* Remove default margin for better alignment */
+      }
+
+      button {
+        background-color: #ff8c00;
+        color: #ffffff;
+        font-size: 1.5em;
+        padding: 0.5em 1em;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+      }
+
+      button:hover {
+        background-color: #ffa500;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>FABRIK</h1>
+    <button onclick="play()">Play</button>
+    <script type="module">
+      import init from "./wasm_game.js";
+
+      window.play = function () {
+        // Hide header and button
+        document.querySelector("h1").style.display = "none";
+        document.querySelector("button").style.display = "none";
+
+        // Call your initialization function
+        init();
+
+        // Focus on the canvas
+        let interval = setInterval(function () {
+          let canvas = document.getElementsByTagName("canvas")[0];
+          if (canvas) {
+            canvas.focus();
+            clearInterval(interval);
+          }
+        }, 100);
+      };
+    </script>
+  </body>
+</html>
