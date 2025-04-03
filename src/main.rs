@@ -37,7 +37,7 @@ fn spawn_arm(
     for i in 0..len {
         let id = commands
             .spawn((
-                Transform::from_translation(pos.extend(1.)),
+                Transform::from_translation(pos.extend(-1.)),
                 // we set the global transform, so that set_parent_in_place works on the same frame
                 GlobalTransform::from_translation(get_limb_world_pos(i)),
                 Mesh2d(meshes.add(Circle::new(3.0))),
@@ -108,7 +108,7 @@ fn setup(
     let id = commands
         // body
         .spawn((
-            Transform::from_translation(Vec3::new(0., 0., 1.)),
+            Transform::from_translation(Vec3::new(0., 0., 0.)),
             Mesh2d(meshes.add(Ellipse::new(20.0, 30.))),
             MeshMaterial2d(materials.add(color)),
             AnimalThingy,
