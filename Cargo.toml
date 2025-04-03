@@ -39,11 +39,6 @@ bevy = { version = "0.15.0", default-features = true, features = [
 	"serialize",
 	"bmp",
 	"shader_format_spirv",
-	"async-io",
-	"embedded_watcher",
-	"file_watcher",
-	"sysinfo_plugin",
-	"dynamic_linking",
 ] }
 bevy_egui = "0.33"
 bevy-inspector-egui = { version = "0.30.0", default-features = true }
