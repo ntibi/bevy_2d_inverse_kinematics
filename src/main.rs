@@ -12,7 +12,10 @@ fn main() {
         .add_plugins(MeshPickingPlugin)
         .add_plugins(IKPlugin)
         .add_systems(Startup, setup)
-        .add_systems(Update, (move_animal, foot_zones).chain())
+        .add_systems(
+            Update,
+            (input, (compute_foot_placement, move_animal)).chain(),
+        )
         .run();
 }
 
@@ -67,6 +70,12 @@ fn spawn_arm(
 #[derive(Component)]
 struct AnimalThingy;
 
+#[derive(Component, Default, Deref, DerefMut)]
+struct Velocity(Vec2);
+
+#[derive(Component, Default, Deref, DerefMut)]
+struct AngularVelocity(f32);
+
 #[derive(Component)]
 struct FootZone {
     foot_entity: Entity,
@@ -92,6 +101,8 @@ fn setup(
             Mesh2d(meshes.add(Ellipse::new(20.0, 30.))),
             MeshMaterial2d(materials.add(color)),
             AnimalThingy,
+            Velocity::default(),
+            AngularVelocity::default(),
         ))
         .with_children(|parent| {
             // left eye
@@ -134,14 +145,14 @@ fn setup(
     ));
 }
 
-const SPEED: f32 = 5.;
-const ROTATION_SPEED: f32 = 0.1;
+const SPEED: f32 = 200.;
+const ROTATION_SPEED: f32 = PI;
 
-fn move_animal(
+fn input(
     keyboard_input: Res<ButtonInput<KeyCode>>,
-    mut query: Query<&mut Transform, With<AnimalThingy>>,
+    mut query: Query<(&mut Velocity, &mut AngularVelocity), With<AnimalThingy>>,
 ) {
-    for mut transform in query.iter_mut() {
+    for (mut vel, mut angvel) in query.iter_mut() {
         let mut dir = Vec2::ZERO;
         let mut rotation = 0.;
 
@@ -154,19 +165,28 @@ fn move_animal(
         }
 
         if keyboard_input.pressed(KeyCode::KeyA) {
-            rotation = ROTATION_SPEED;
+            rotation = 1.;
         }
         if keyboard_input.pressed(KeyCode::KeyD) {
-            rotation = -ROTATION_SPEED;
+            rotation = -1.;
         }
 
-        transform.rotation *= Quat::from_rotation_z(rotation);
-        let tr = transform.rotation.mul_vec3(dir.extend(0.) * SPEED);
+        **vel = dir.normalize_or_zero();
+        **angvel = rotation;
+    }
+}
+
+fn move_animal(mut query: Query<(&mut Transform, &Velocity, &AngularVelocity)>, time: Res<Time>) {
+    for (mut transform, vel, angvel) in query.iter_mut() {
+        transform.rotation *= Quat::from_rotation_z(**angvel * ROTATION_SPEED * time.delta_secs());
+        let tr = transform
+            .rotation
+            .mul_vec3(vel.extend(0.) * SPEED * time.delta_secs());
         transform.translation += tr;
     }
 }
 
-fn foot_zones(
+fn compute_foot_placement(
     mut foot_zones: Query<(&GlobalTransform, &mut FootZone)>,
     time: Res<Time>,
     mut effectors: Query<(&mut IKConstraint, &GlobalTransform)>,
