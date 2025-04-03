@@ -1,6 +1,6 @@
 use std::f32::consts::PI;
 
-use bevy::{prelude::*, window::PrimaryWindow};
+use bevy::{input::mouse::AccumulatedMouseScroll, prelude::*};
 
 mod ik;
 
@@ -12,10 +12,8 @@ fn main() {
         .add_plugins(MeshPickingPlugin)
         .add_plugins(IKPlugin)
         .add_systems(Startup, setup)
-        .add_systems(
-            Update,
-            (input, (compute_foot_placement, move_animal)).chain(),
-        )
+        .add_systems(Update, (input, move_animal, compute_foot_placement).chain())
+        .add_systems(Update, zoom)
         .run();
 }
 
@@ -34,12 +32,12 @@ fn spawn_arm(
     let mut entities = Vec::new();
 
     let get_limb_world_pos =
-        |i: usize| (pos + dir.normalize() * i as f32 * 6.).extend(1. + i as f32);
+        |i: usize| (pos + dir.normalize() * i as f32 * 6.).extend(-2. - i as f32);
 
     for i in 0..len {
         let id = commands
             .spawn((
-                Transform::from_translation(pos.extend(-1.)),
+                Transform::from_translation(pos.extend(1.)),
                 // we set the global transform, so that set_parent_in_place works on the same frame
                 GlobalTransform::from_translation(get_limb_world_pos(i)),
                 Mesh2d(meshes.add(Circle::new(3.0))),
@@ -90,7 +88,11 @@ struct FootZone {
     max_distance: f32,
 
     /// if set, the foot will translate to this position
-    translate_to: Option<Vec2>,
+    /// (position is relative to the foot zone transform)
+    next_step: Option<Vec2>,
+
+    /// default position for the next step
+    default_next_step: Vec2,
 }
 
 fn setup(
@@ -100,8 +102,8 @@ fn setup(
 ) {
     commands.spawn(Camera2d);
 
-    let color = Color::srgb(0.0, 0.0, 1.0);
-    let hand_color = Color::srgb(0.0, 0.0, 0.5);
+    let color = Color::srgb(0.0, 0.8, 0.0);
+    let hand_color = Color::srgb(0.0, 0.0, 0.0);
 
     let id = commands
         // body
@@ -129,10 +131,13 @@ fn setup(
         })
         .id();
 
-    // bottom right arm
     let parts = 5;
     let dist_constraint = 6.;
+    let max_distance = dist_constraint * (parts - 1) as f32 * 0.9;
+
+    // bottom right leg
     let pos = Vec2::new(12., -17.);
+    let next_step = Vec2::new(18., 9.);
     let (anchor, effector) = spawn_arm(
         pos,
         Vec2::new(1., 0.),
@@ -147,15 +152,91 @@ fn setup(
     commands.entity(id).add_child(anchor);
     commands.entity(id).with_child((
         FootZone {
-            max_distance: dist_constraint * parts as f32 * 0.8,
+            max_distance,
             foot_entity: effector,
-            translate_to: None,
+            next_step: None,
+            default_next_step: next_step,
+        },
+        Transform::from_translation(pos.extend(0.)),
+    ));
+
+    // bottom left leg
+    let pos = Vec2::new(-12., -17.);
+    let next_step = Vec2::new(-18., 9.);
+    let (anchor, effector) = spawn_arm(
+        pos,
+        Vec2::new(-1., 0.),
+        parts,
+        dist_constraint,
+        color,
+        hand_color,
+        &mut commands,
+        &mut meshes,
+        &mut materials,
+    );
+    commands.entity(id).add_child(anchor);
+    commands.entity(id).with_child((
+        FootZone {
+            max_distance,
+            foot_entity: effector,
+            next_step: None,
+            default_next_step: next_step,
+        },
+        Transform::from_translation(pos.extend(0.)),
+    ));
+
+    // top right leg
+    let pos = Vec2::new(12., 17.);
+    let next_step = Vec2::new(15., 10.);
+    let (anchor, effector) = spawn_arm(
+        pos,
+        Vec2::new(1., 0.),
+        parts,
+        dist_constraint,
+        color,
+        hand_color,
+        &mut commands,
+        &mut meshes,
+        &mut materials,
+    );
+    commands.entity(id).add_child(anchor);
+    commands.entity(id).with_child((
+        FootZone {
+            max_distance,
+            foot_entity: effector,
+            next_step: None,
+            default_next_step: next_step,
+        },
+        Transform::from_translation(pos.extend(0.)),
+    ));
+
+    // top left leg
+    let pos = Vec2::new(-12., 17.);
+    let next_step = Vec2::new(-15., 10.);
+    let (anchor, effector) = spawn_arm(
+        pos,
+        Vec2::new(-1., 0.),
+        parts,
+        dist_constraint,
+        color,
+        hand_color,
+        &mut commands,
+        &mut meshes,
+        &mut materials,
+    );
+    commands.entity(id).add_child(anchor);
+    commands.entity(id).with_child((
+        FootZone {
+            max_distance,
+            foot_entity: effector,
+            next_step: None,
+            default_next_step: next_step,
         },
         Transform::from_translation(pos.extend(0.)),
     ));
 }
 
-const SPEED: f32 = 200.;
+const SPEED: f32 = 100.;
 const ROTATION_SPEED: f32 = PI;
 
 fn input(
@@ -175,9 +256,16 @@ fn input(
         }
 
         if keyboard_input.pressed(KeyCode::KeyA) {
-            rotation = 1.;
+            dir -= Vec2::X;
         }
         if keyboard_input.pressed(KeyCode::KeyD) {
+            dir += Vec2::X;
+        }
+
+        if keyboard_input.pressed(KeyCode::KeyQ) {
+            rotation = 1.;
+        }
+        if keyboard_input.pressed(KeyCode::KeyE) {
             rotation = -1.;
         }
 
@@ -197,35 +285,43 @@ fn move_animal(mut query: Query<(&mut Transform, &Velocity, &AngularVelocity)>, 
 }
 
 fn compute_foot_placement(
-    mut foot_zones: Query<(&GlobalTransform, &mut FootZone)>,
+    agent: Query<(&Transform, &Velocity), With<AnimalThingy>>,
+    mut foot_zones: Query<(&GlobalTransform, &mut FootZone, &Parent)>,
     time: Res<Time>,
     mut effectors: Query<(&mut IKConstraint, &GlobalTransform)>,
     mut gizmos: Gizmos,
 ) {
-    for (transform, mut foot_zone) in foot_zones.iter_mut() {
+    for (transform, mut foot_zone, parent) in foot_zones.iter_mut() {
+        let (agent_transform, agent_vel) = agent.get(**parent).unwrap();
+
         let (mut effector, foot_pos) = effectors.get_mut(foot_zone.foot_entity).unwrap();
         let foot_pos = foot_pos.translation().xy();
         let base_pos = transform.translation().xy();
+        let default_next_step = base_pos
+            + transform
+                .rotation()
+                .mul_vec3(foot_zone.default_next_step.extend(0.))
+                .xy();
+        gizmos.circle_2d(default_next_step, 3., Color::srgb(1., 0., 0.));
 
-        if let Some(translating) = foot_zone.translate_to {
-            if foot_pos.distance(translating) < 1. {
-                foot_zone.translate_to = None;
-            }
+        //let movement_dir = agent_transform
+        //.rotation
+        //.mul_vec3(agent_vel.extend(0.))
+        //.xy()
+        //.normalize_or_zero();
 
-            let diff = translating - foot_pos;
-            let diff_len = diff.length();
-
-            let dir = diff.normalize();
-            let delta_movement = (dir * SPEED * time.delta_secs()).clamp_length_max(diff_len);
-            gizmos.circle_2d(foot_pos + delta_movement, 5., Color::srgb(1., 0., 0.));
-            gizmos.circle_2d(translating, 5., Color::srgb(0., 1., 0.));
-
-            effector.target(foot_pos + delta_movement);
-        } else {
-            gizmos.circle_2d(foot_pos, 5., Color::srgb(0., 1., 0.));
-            if foot_pos.distance(base_pos) > foot_zone.max_distance {
-                foot_zone.translate_to = Some(base_pos + base_pos - foot_pos);
-            }
+        gizmos.circle_2d(foot_pos, 1., Color::srgb(0., 1., 1.));
+        gizmos.circle_2d(base_pos, foot_zone.max_distance, Color::srgb(0., 1., 0.));
+        if foot_pos.distance(base_pos) > foot_zone.max_distance {
+            effector.target(default_next_step);
         }
     }
+}
+
+fn zoom(
+    camera: Single<&mut OrthographicProjection, With<Camera>>,
+    mouse_wheel_input: Res<AccumulatedMouseScroll>,
+) {
+    let mut projection = camera.into_inner();
+    projection.scale += -mouse_wheel_input.delta.y * 0.1;
 }
