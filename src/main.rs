@@ -88,7 +88,7 @@ struct FootZone {
     max_distance: f32,
 
     /// default position for the next step
-    default_next_step: Vec2,
+    default_rest_pos: Vec2,
 }
 
 fn setup(
@@ -150,7 +150,7 @@ fn setup(
         FootZone {
             max_distance,
             foot_entity: effector,
-            default_next_step: next_step,
+            default_rest_pos: next_step,
         },
         Transform::from_translation(pos.extend(0.)),
     ));
@@ -174,7 +174,7 @@ fn setup(
         FootZone {
             max_distance,
             foot_entity: effector,
-            default_next_step: next_step,
+            default_rest_pos: next_step,
         },
         Transform::from_translation(pos.extend(0.)),
     ));
@@ -198,7 +198,7 @@ fn setup(
         FootZone {
             max_distance,
             foot_entity: effector,
-            default_next_step: next_step,
+            default_rest_pos: next_step,
         },
         Transform::from_translation(pos.extend(0.)),
     ));
@@ -222,7 +222,7 @@ fn setup(
         FootZone {
             max_distance,
             foot_entity: effector,
-            default_next_step: next_step,
+            default_rest_pos: next_step,
         },
         Transform::from_translation(pos.extend(0.)),
     ));
@@ -287,13 +287,13 @@ fn compute_foot_placement(
         let (mut effector, foot_pos) = effectors.get_mut(foot_zone.foot_entity).unwrap();
         let foot_pos = foot_pos.translation().xy();
         let base_pos = transform.translation().xy();
-        let default_next_step = base_pos
+        let default_rest_pos = base_pos
             + transform
                 .rotation()
-                .mul_vec3(foot_zone.default_next_step.extend(0.))
+                .mul_vec3(foot_zone.default_rest_pos.extend(0.))
                 .xy();
 
-        //gizmos.circle_2d(default_next_step, 3., Color::srgb(1., 0., 0.));
+        gizmos.circle_2d(default_rest_pos, 3., Color::srgb(1., 0., 0.));
 
         //let movement_dir = agent_transform
         //.rotation
@@ -301,10 +301,10 @@ fn compute_foot_placement(
         //.xy()
         //.normalize_or_zero();
 
-        //gizmos.circle_2d(foot_pos, 1., Color::srgb(0., 1., 1.));
-        //gizmos.circle_2d(base_pos, foot_zone.max_distance, Color::srgb(0., 1., 0.));
+        gizmos.circle_2d(foot_pos, 1., Color::srgb(0., 1., 1.));
+        gizmos.circle_2d(base_pos, foot_zone.max_distance, Color::srgb(0., 1., 0.));
         if foot_pos.distance(base_pos) > foot_zone.max_distance {
-            effector.target(default_next_step);
+            effector.target(default_rest_pos);
         }
     }
 }
