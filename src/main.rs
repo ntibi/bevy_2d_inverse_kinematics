@@ -1,6 +1,6 @@
-use std::f32::consts::PI;
-
 use bevy::{input::mouse::AccumulatedMouseScroll, prelude::*};
+use bevy_inspector_egui::quick::WorldInspectorPlugin;
+use std::f32::consts::PI;
 
 mod ik;
 
@@ -10,6 +10,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins.build())
         .add_plugins(MeshPickingPlugin)
+        .add_plugins(WorldInspectorPlugin::new())
         .add_plugins(IKPlugin)
         .add_systems(Startup, setup)
         .add_systems(Update, (input, move_animal, compute_foot_placement).chain())
