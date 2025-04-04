@@ -1,9 +1,11 @@
 use bevy::{input::mouse::AccumulatedMouseScroll, prelude::*};
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 
+mod arm;
 mod frog;
 mod ik;
 
+pub use arm::*;
 pub use frog::*;
 pub use ik::*;
 
@@ -13,7 +15,8 @@ fn main() {
         .add_plugins(MeshPickingPlugin)
         .add_plugins(WorldInspectorPlugin::new())
         .add_plugins(IKPlugin)
-        .add_plugins(FrogPlugin)
+        //.add_plugins(FrogPlugin)
+        .add_plugins(ArmPlugin)
         .add_systems(Startup, setup)
         .add_systems(Update, zoom)
         .run();

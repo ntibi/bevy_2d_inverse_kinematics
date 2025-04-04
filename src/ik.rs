@@ -153,29 +153,35 @@ fn apply_ik(
 
             for (entity, new_pos) in chain {
                 let (parent, _, _) = transforms.get(entity).unwrap();
-                let Some(parent) = parent else {
-                    panic!("entity {} of an ik chain has no parent", entity);
-                };
+                if let Some(parent) = parent {
+                    // if parent
+                    // do the GlobalTransform to local conversion
 
-                let (_, parent_global_tr, _) = transforms.get(**parent).unwrap();
-                let parent_global_tr = parent_global_tr.clone();
-                let (_, _, transform) = transforms.get(entity).unwrap();
-                let new_pos = new_pos.extend(transform.translation.z);
+                    let (_, parent_global_tr, _) = transforms.get(**parent).unwrap();
+                    let parent_global_tr = parent_global_tr.clone();
+                    let (_, _, transform) = transforms.get(entity).unwrap();
+                    let new_pos = new_pos.extend(transform.translation.z);
 
-                // compute translation from world space to parent space
-                let new_translation = parent_global_tr
-                    .compute_matrix()
-                    .inverse()
-                    .transform_point3(new_pos)
-                    .xy()
-                    .extend(transform.translation.z);
+                    // compute translation from world space to parent space
+                    let new_translation = parent_global_tr
+                        .compute_matrix()
+                        .inverse()
+                        .transform_point3(new_pos)
+                        .xy()
+                        .extend(transform.translation.z);
 
-                let (_, mut global_tr, mut transform) = transforms.get_mut(entity).unwrap();
-                transform.translation = new_translation;
-                // here we re-do the job of propagate_transforms
-                // because we are scheduled to run after it's done (to have the hierarchy movement applied)
-                // but we still need the transform and global transform to be in synnc
-                *global_tr = parent_global_tr.mul_transform(*transform);
+                    let (_, mut global_tr, mut transform) = transforms.get_mut(entity).unwrap();
+                    transform.translation = new_translation;
+                    // here we re-do the job of propagate_transforms
+                    // because we are scheduled to run after it's done (to have the hierarchy movement applied)
+                    // but we still need the transform and global transform to be in synnc
+                    *global_tr = parent_global_tr.mul_transform(*transform);
+                } else {
+                    let (_, mut global_tr, mut transform) = transforms.get_mut(entity).unwrap();
+                    // if no parent, just set the translation
+                    transform.translation = new_pos.extend(transform.translation.z);
+                    *global_tr = GlobalTransform::from(*transform);
+                }
             }
         }
     }
