@@ -5,7 +5,7 @@ use fabrik::ik::IKConstraint;
 
 pub struct RiggedModelPlugin;
 
-const SPEED: f32 = 1.;
+const SPEED: f32 = 2.;
 const ROTATION_SPEED: f32 = PI;
 
 impl Plugin for RiggedModelPlugin {
