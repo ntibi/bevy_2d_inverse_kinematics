@@ -280,6 +280,7 @@ fn compute_foot_placement(
     _agent: Query<(&Transform, &Velocity), With<AnimalThingy>>,
     mut foot_zones: Query<(&GlobalTransform, &FootZone, &Parent)>,
     mut effectors: Query<(&mut IKConstraint, &GlobalTransform)>,
+    mut gizmos: Gizmos,
 ) {
     for (transform, foot_zone, _parent) in foot_zones.iter_mut() {
         //let (agent_transform, agent_vel) = agent.get(**parent).unwrap();
