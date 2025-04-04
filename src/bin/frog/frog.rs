@@ -1,7 +1,6 @@
 use bevy::prelude::*;
+use fabrik::ik::IKConstraint;
 use std::f32::consts::PI;
-
-use crate::IKConstraint;
 
 pub struct FrogPlugin;
 
