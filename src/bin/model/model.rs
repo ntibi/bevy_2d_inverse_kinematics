@@ -22,7 +22,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         Movable,
         Velocity::default(),
         AngularVelocity::default(),
-        SceneRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset("model.gltf"))),
+        SceneRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset("frog.glb"))),
     ));
 
     //commands.entity(effector).insert(
