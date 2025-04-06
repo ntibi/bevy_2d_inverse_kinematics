@@ -29,6 +29,11 @@ fn setup(mut commands: Commands) {
         }),
         Transform::from_xyz(0.0, 0.0, 50.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
+
+    commands.spawn((
+        PointLight { ..default() },
+        Transform::from_translation(Vec3::new(10., 10., 10.)),
+    ));
 }
 
 fn zoom(//camera: Single<&mut OrthographicProjection, With<Camera>>,
