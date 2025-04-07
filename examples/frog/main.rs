@@ -5,6 +5,10 @@ use frog::FrogPlugin;
 
 mod frog;
 
+// basic IK example with a procedural frog walking around
+// its feet are IK targets
+// move the frog around with WASD+QE
+
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins.build())

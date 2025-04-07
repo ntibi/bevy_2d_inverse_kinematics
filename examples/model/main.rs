@@ -5,6 +5,11 @@ use model::RiggedModelPlugin;
 
 mod model;
 
+// IK example with a gltf model
+// the IK chain data is specified in the code
+// left click to make the effectors follow the cursor
+// it only has one leg because i'm lazy
+
 const ZOOM_SPEED: f32 = 0.1;
 const CAMERA_SPEED: f32 = 5.0;
 

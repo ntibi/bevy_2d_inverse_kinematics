@@ -5,6 +5,9 @@ use fabrik::ik::IKPlugin;
 
 mod arm;
 
+// basic IK example with an arm make of circles
+// left click to make the effector follow the cursor
+
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins.build())

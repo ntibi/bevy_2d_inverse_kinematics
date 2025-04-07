@@ -3,8 +3,6 @@ name = "fabrik"
 version = "0.1.0"
 edition = "2021"
 
-default-run = "fabrik"
-
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [profile.dev]
@@ -14,31 +12,8 @@ opt-level = 1
 opt-level = 3
 
 [dependencies]
-bevy = { version = "0.15.0", default-features = true, features = [
-	"multi_threaded",
-	"bevy_asset",
-	"bevy_winit",
-	"bevy_window",
-	"bevy_render",
-	"bevy_core_pipeline",
-	"bevy_gizmos",
-	"bevy_sprite",
-	"bevy_text",
-	"bevy_ui",
-	"bevy_debug_stepping",
-	"bevy_pbr",
-	"bevy_gilrs",
-	"bevy_gltf",
-	"bevy_animation",
-	"tonemapping_luts",
-	"default_font",
-	"png",
-	"x11",
-	"webgl2",
-	"asset_processor",
-	"serialize",
-	"bmp",
-	"shader_format_spirv",
-] }
+bevy = { version = "0.15.0" }
+
+[dev-dependencies]
 bevy_egui = "0.33"
 bevy-inspector-egui = { version = "0.30.0", default-features = true }
