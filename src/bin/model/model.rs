@@ -1,7 +1,7 @@
 use std::f32::consts::PI;
 
 use bevy::{prelude::*, scene::SceneInstanceReady, window::PrimaryWindow};
-use fabrik::ik::{Bone, IKConstraint};
+use fabrik::ik::{Bone, IKConstraint, Joint};
 
 pub struct RiggedModelPlugin;
 
@@ -33,7 +33,7 @@ fn get_bones<const N: usize>(
     keys: [&str; N],
     query: &Query<(Option<&Name>, Option<&Children>)>,
     transform_helper: &TransformHelper,
-) -> Option<[(Entity, Vec2); N]> {
+) -> Option<[(Entity, Vec2, f32); N]> {
     let mut found = [None; N];
 
     let mut to_visit = vec![start];
@@ -44,13 +44,12 @@ fn get_bones<const N: usize>(
         for (i, key) in keys.iter().enumerate() {
             if let Some(name) = name {
                 if name.as_str() == *key {
+                    let tr = transform_helper.compute_global_transform(entity).unwrap();
+
                     found[i] = Some((
                         entity,
-                        transform_helper
-                            .compute_global_transform(entity)
-                            .unwrap()
-                            .translation()
-                            .xy(),
+                        tr.translation().xy(),
+                        tr.rotation().to_euler(EulerRot::XYZ).2,
                     ));
                 }
             }
@@ -101,7 +100,13 @@ fn map_ik(
                     foot.0,
                     Bone::new(PI / 2., leg.1.distance(foreleg.1)),
                 ),
-            ]),
+            ])
+            .with_joint_data(vec![
+                (leg.0, Joint::new(leg.2)),
+                (foreleg.0, Joint::new(foreleg.2)),
+                (foot.0, Joint::new(foot.2)),
+            ])
+            .with_epsilon(0.001),
     );
 }
 
