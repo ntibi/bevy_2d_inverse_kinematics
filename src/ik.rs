@@ -255,14 +255,14 @@ fn apply_ik(
 
                     let (_, parent_global_tr, _) = transforms.get(**parent).unwrap();
                     let parent_global_tr = parent_global_tr.clone();
-                    let (_, _, transform) = transforms.get(entity).unwrap();
-                    let new_pos = new_pos.extend(transform.translation.z);
 
                     let (_, mut global_tr, mut transform) = transforms.get_mut(entity).unwrap();
+
+                    let new_pos = new_pos.extend(global_tr.translation().z);
                     let new_global_tr = GlobalTransform::from(Transform {
                         translation: new_pos,
                         rotation,
-                        scale: transform.scale,
+                        scale: global_tr.scale(),
                     });
 
                     *transform = new_global_tr.reparented_to(&parent_global_tr);

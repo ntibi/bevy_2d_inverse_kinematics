@@ -60,7 +60,8 @@ fn spawn_arm(
         IKConstraint::new(entities.clone())
             .with_iterations(10)
             .with_single_bone_data(Bone::new(3. * PI / 4., dist_constraint))
-            .with_target(get_limb_world_pos(len - 1).xy()),
+            .with_target(get_limb_world_pos(len - 1).xy())
+            .with_epsilon(0.01),
     );
 
     (anchor, effector)
@@ -271,7 +272,6 @@ fn compute_foot_placement(
     _agent: Query<(&Transform, &Velocity), With<AnimalThingy>>,
     mut foot_zones: Query<(&GlobalTransform, &FootZone, &Parent)>,
     mut effectors: Query<(&mut IKConstraint, &GlobalTransform)>,
-    mut gizmos: Gizmos,
 ) {
     for (transform, foot_zone, _parent) in foot_zones.iter_mut() {
         //let (agent_transform, agent_vel) = agent.get(**parent).unwrap();
@@ -285,7 +285,7 @@ fn compute_foot_placement(
                 .mul_vec3(foot_zone.default_rest_pos.extend(0.))
                 .xy();
 
-        gizmos.circle_2d(default_rest_pos, 3., Color::srgb(1., 0., 0.));
+        //gizmos.circle_2d(default_rest_pos, 3., Color::srgb(1., 0., 0.));
 
         //let movement_dir = agent_transform
         //.rotation
@@ -293,8 +293,8 @@ fn compute_foot_placement(
         //.xy()
         //.normalize_or_zero();
 
-        gizmos.circle_2d(foot_pos, 1., Color::srgb(0., 1., 1.));
-        gizmos.circle_2d(base_pos, foot_zone.max_distance, Color::srgb(0., 1., 0.));
+        //gizmos.circle_2d(foot_pos, 1., Color::srgb(0., 1., 1.));
+        //gizmos.circle_2d(base_pos, foot_zone.max_distance, Color::srgb(0., 1., 0.));
         if foot_pos.distance(base_pos) > foot_zone.max_distance {
             effector.target(default_rest_pos);
         }
