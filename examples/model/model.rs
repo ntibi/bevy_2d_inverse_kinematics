@@ -1,7 +1,7 @@
 use std::f32::consts::PI;
 
 use bevy::{prelude::*, scene::SceneInstanceReady, window::PrimaryWindow};
-use fabrik::ik::{Bone, IKConstraint, Joint};
+use bevy_2d_inverse_kinematics::{Bone, IKConstraint, Joint};
 
 pub struct RiggedModelPlugin;
 

@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use fabrik::ik::{Bone, IKConstraint};
+use bevy_2d_inverse_kinematics::{Bone, IKConstraint};
 use std::f32::consts::PI;
 
 pub struct FrogPlugin;

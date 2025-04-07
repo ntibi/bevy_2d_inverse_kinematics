@@ -1,6 +1,6 @@
 use bevy::{input::mouse::AccumulatedMouseScroll, prelude::*, render::camera::ScalingMode};
+use bevy_2d_inverse_kinematics::IKPlugin;
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
-use fabrik::ik::IKPlugin;
 use model::RiggedModelPlugin;
 
 mod model;

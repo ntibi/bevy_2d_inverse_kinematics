@@ -1,5 +1,5 @@
 [package]
-name = "fabrik"
+name = "bevy_2d_inverse_kinematics"
 version = "0.1.0"
 edition = "2021"
 description = "A 2D inverse kinematics plugin for Bevy"
