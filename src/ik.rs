@@ -12,6 +12,7 @@ impl Plugin for IKPlugin {
     }
 }
 
+/// constraints of a bone (which is a relation between two `Joint`
 #[derive(Clone)]
 pub struct Bone {
     max_angle: f32,
@@ -46,6 +47,7 @@ impl Joint {
     }
 }
 
+/// add this component to an entity to make it the effector of an IK chain
 #[derive(Component)]
 pub struct IKConstraint {
     /// target position for the end of the chain
