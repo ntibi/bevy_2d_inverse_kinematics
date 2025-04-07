@@ -1,9 +1,12 @@
-use bevy::{input::mouse::MouseWheel, prelude::*, render::camera::ScalingMode};
+use bevy::{input::mouse::AccumulatedMouseScroll, prelude::*, render::camera::ScalingMode};
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use fabrik::ik::IKPlugin;
 use model::RiggedModelPlugin;
 
 mod model;
+
+const ZOOM_SPEED: f32 = 0.1;
+const CAMERA_SPEED: f32 = 5.0;
 
 fn main() {
     App::new()
@@ -13,7 +16,7 @@ fn main() {
         .add_plugins(IKPlugin)
         .add_plugins(RiggedModelPlugin)
         .add_systems(Startup, setup)
-        .add_systems(Update, (angle, zoom, translate))
+        .add_systems(Update, (zoom, translate))
         .run();
 }
 
@@ -21,7 +24,6 @@ fn setup(mut commands: Commands) {
     commands.spawn((
         Camera3d::default(),
         Projection::from(OrthographicProjection {
-            // 6 world units per pixel of window height.
             scaling_mode: ScalingMode::FixedVertical {
                 viewport_height: 6.0,
             },
@@ -36,28 +38,22 @@ fn setup(mut commands: Commands) {
     ));
 }
 
-fn zoom(//camera: Single<&mut OrthographicProjection, With<Camera>>,
-    //mouse_wheel_input: Res<AccumulatedMouseScroll>,
+fn zoom(
+    camera: Single<&mut Projection, With<Camera>>,
+    mouse_wheel_input: Res<AccumulatedMouseScroll>,
 ) {
-    //let mut projection = camera.into_inner();
-    //projection.scale += -mouse_wheel_input.delta.y * 0.1;
-}
+    match *camera.into_inner() {
+        Projection::Orthographic(ref mut orthographic) => {
+            let delta_zoom = -mouse_wheel_input.delta.y * ZOOM_SPEED;
+            let multiplicative_zoom = 1. + delta_zoom;
 
-fn angle(
-    mut camera_query: Query<&mut Transform, With<Camera>>,
-    mut evr_scroll: EventReader<MouseWheel>,
-    keyboard_input: Res<ButtonInput<KeyCode>>,
-    time: Res<Time>,
-) {
-    let mut transform = camera_query.single_mut();
+            orthographic.scale = orthographic.scale * multiplicative_zoom;
+        }
+        Projection::Perspective(ref mut perspective) => {
+            let delta_zoom = -mouse_wheel_input.delta.y * ZOOM_SPEED;
 
-    for scroll in evr_scroll.read() {
-        transform.rotate_y(scroll.x * time.delta_secs() * 0.3);
-        transform.rotate_x(scroll.y * time.delta_secs() * 0.3);
-    }
-
-    if keyboard_input.pressed(KeyCode::Backspace) {
-        transform.rotation = Quat::IDENTITY;
+            perspective.fov = perspective.fov + delta_zoom;
+        }
     }
 }
 
@@ -69,15 +65,19 @@ fn translate(
     let mut transform = camera_query.single_mut();
 
     if keyboard_input.pressed(KeyCode::ArrowUp) {
-        transform.translation = transform.translation + transform.up() * time.delta_secs() * 5.;
+        transform.translation =
+            transform.translation + transform.up() * time.delta_secs() * CAMERA_SPEED;
     }
     if keyboard_input.pressed(KeyCode::ArrowDown) {
-        transform.translation = transform.translation + transform.down() * time.delta_secs() * 5.;
+        transform.translation =
+            transform.translation + transform.down() * time.delta_secs() * CAMERA_SPEED;
     }
     if keyboard_input.pressed(KeyCode::ArrowLeft) {
-        transform.translation = transform.translation + transform.left() * time.delta_secs() * 5.;
+        transform.translation =
+            transform.translation + transform.left() * time.delta_secs() * CAMERA_SPEED;
     }
     if keyboard_input.pressed(KeyCode::ArrowRight) {
-        transform.translation = transform.translation + transform.right() * time.delta_secs() * 5.;
+        transform.translation =
+            transform.translation + transform.right() * time.delta_secs() * CAMERA_SPEED;
     }
 }
