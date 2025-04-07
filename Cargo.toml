@@ -8,6 +8,7 @@ readme = "README.md"
 license-file = "LICENSE"
 keywords = ["bevy", "fabrik", "2d", "inverse-kinematics", "animation"]
 categories = ["game-development", "simulation", "games"]
+exclude = ["assets/", "misc/", ".github/"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
