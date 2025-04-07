@@ -1,5 +1,5 @@
-use bevy::{prelude::*, window::PrimaryWindow};
-use fabrik::ik::IKConstraint;
+use bevy::{ecs::entity::EntityHashMap, prelude::*, window::PrimaryWindow};
+use fabrik::ik::{Bone, IKConstraint};
 use std::f32::consts::PI;
 
 pub struct ArmPlugin;
@@ -45,10 +45,14 @@ fn setup(
     let effector = entities[entities.len() - 1];
 
     commands.entity(effector).insert(
-        IKConstraint::new(entities)
+        IKConstraint::new(entities.clone())
             .with_iterations(10)
-            .with_distance_constraint(DIST)
-            .with_angle_constraint(ANGLE),
+            .with_bone_data(
+                entities
+                    .iter()
+                    .map(|&e| (e, Bone::new(ANGLE, DIST)))
+                    .collect::<EntityHashMap<Bone>>(),
+            ),
     );
 }
 

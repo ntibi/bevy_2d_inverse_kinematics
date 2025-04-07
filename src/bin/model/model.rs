@@ -24,13 +24,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         AngularVelocity::default(),
         SceneRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset("frog.gltf"))),
     ));
-
-    //commands.entity(effector).insert(
-    //IKConstraint::new(entities)
-    //.with_iterations(10)
-    //.with_distance_constraint(DIST)
-    //.with_angle_constraint(ANGLE),
-    //);
 }
 
 fn update_target(

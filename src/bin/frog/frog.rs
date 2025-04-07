@@ -1,5 +1,5 @@
-use bevy::prelude::*;
-use fabrik::ik::IKConstraint;
+use bevy::{ecs::entity::EntityHashMap, prelude::*};
+use fabrik::ik::{Bone, IKConstraint};
 use std::f32::consts::PI;
 
 pub struct FrogPlugin;
@@ -57,10 +57,14 @@ fn spawn_arm(
     let effector = entities[entities.len() - 1];
 
     commands.entity(effector).insert(
-        IKConstraint::new(entities)
+        IKConstraint::new(entities.clone())
             .with_iterations(10)
-            .with_distance_constraint(dist_constraint)
-            .with_angle_constraint(3. * PI / 4.)
+            .with_bone_data(
+                entities
+                    .iter()
+                    .map(|&e| (e, Bone::new(3. * PI / 4., dist_constraint)))
+                    .collect::<EntityHashMap<Bone>>(),
+            )
             .with_target(get_limb_world_pos(len - 1).xy()),
     );
 

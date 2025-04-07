@@ -1,4 +1,4 @@
-use bevy::prelude::*;
+use bevy::{ecs::entity::EntityHashMap, prelude::*};
 use std::f32::consts::PI;
 
 pub struct IKPlugin;
@@ -12,6 +12,27 @@ impl Plugin for IKPlugin {
     }
 }
 
+#[derive(Clone)]
+pub struct Bone {
+    max_angle: f32,
+    length: f32,
+}
+
+impl Default for Bone {
+    fn default() -> Self {
+        Self {
+            max_angle: 3. * PI / 4.,
+            length: 10.0,
+        }
+    }
+}
+
+impl Bone {
+    pub fn new(max_angle: f32, length: f32) -> Self {
+        Self { max_angle, length }
+    }
+}
+
 #[derive(Component)]
 pub struct IKConstraint {
     /// target position for the end of the chain
@@ -19,14 +40,14 @@ pub struct IKConstraint {
     /// path from the anchor of the constraint to the entity holding this component
     chain: Vec<Entity>,
 
+    /// bone data for each entity in the chain
+    bone_data: EntityHashMap<Bone>,
+
     /// max number of iterations to solve the IK constraint
     iterations: usize,
 
     /// epsilon to consider the constraint solved
     epsilon: f32,
-
-    distance_constraint: f32,
-    angle_constraint: f32,
 }
 
 impl IKConstraint {
@@ -36,23 +57,17 @@ impl IKConstraint {
             chain,
             iterations: 10,
             epsilon: 1.0,
-            distance_constraint: 10.,
-            angle_constraint: 3. * PI / 4.,
+            bone_data: EntityHashMap::default(),
         }
+    }
+
+    pub fn with_bone_data(mut self, bone_data: EntityHashMap<Bone>) -> Self {
+        self.bone_data = bone_data;
+        self
     }
 
     pub fn with_iterations(mut self, iterations: usize) -> Self {
         self.iterations = iterations;
-        self
-    }
-
-    pub fn with_distance_constraint(mut self, distance_constraint: f32) -> Self {
-        self.distance_constraint = distance_constraint;
-        self
-    }
-
-    pub fn with_angle_constraint(mut self, angle_constraint: f32) -> Self {
-        self.angle_constraint = angle_constraint;
         self
     }
 
@@ -71,10 +86,9 @@ impl IKConstraint {
 }
 
 fn solve(
+    bone_data: &EntityHashMap<Bone>,
     target: Vec2,
     mut chain: Vec<(Entity, Vec2)>,
-    dist: f32,
-    max_angle: f32,
     clamp_angle: bool,
 ) -> Vec<(Entity, Vec2)> {
     chain.reverse();
@@ -83,23 +97,24 @@ fn solve(
     let mut prev_dir: Option<Vec2> = None;
 
     for i in 0..(chain.len() - 1) {
-        let (_, pos) = chain[i];
+        let (entity, pos) = chain[i];
         let (_, ref mut next_pos) = chain[i + 1];
+        let bone = bone_data.get(&entity).cloned().unwrap_or_default();
 
         let mut dir = (*next_pos - pos).normalize();
 
         if clamp_angle {
             if let Some(prev_dir) = prev_dir {
                 let angle = prev_dir.angle_to(dir);
-                if angle > max_angle || angle < -max_angle {
-                    let clamped_angle = angle.clamp(-max_angle, max_angle);
+                if angle > bone.max_angle || angle < -bone.max_angle {
+                    let clamped_angle = angle.clamp(-bone.max_angle, bone.max_angle);
                     let rotation = Mat2::from_angle(clamped_angle);
                     dir = rotation * prev_dir;
                 }
             }
         }
 
-        *next_pos = pos + dir * dist;
+        *next_pos = pos + dir * bone.length;
 
         prev_dir = Some(dir);
     }
@@ -128,22 +143,10 @@ fn apply_ik(
             let anchor = chain[0].1;
 
             for _ in 0..constraint.iterations {
-                chain = solve(
-                    target,
-                    chain,
-                    constraint.distance_constraint,
-                    constraint.angle_constraint,
-                    false,
-                );
+                chain = solve(&constraint.bone_data, target, chain, false);
                 chain.reverse();
                 // only apply rotation constraint on the backward pass
-                chain = solve(
-                    anchor,
-                    chain,
-                    constraint.distance_constraint,
-                    constraint.angle_constraint,
-                    true,
-                );
+                chain = solve(&constraint.bone_data, anchor, chain, true);
                 chain.reverse();
 
                 if chain[chain.len() - 1].1.distance(target) < constraint.epsilon {
