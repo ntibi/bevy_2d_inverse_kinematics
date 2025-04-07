@@ -26,6 +26,6 @@ equally cute frog from a gltf model with a single arm that follows the mouse
 cargo run --example model
 ```
 <p align="center">
-<img src="https://github.com/ntibi/bevy_2d_inverse_kinematics/blob/master/misc/arm.gif" width=500 alt="arm" />
-<img src="https://github.com/ntibi/bevy_2d_inverse_kinematics/blob/master/misc/frog.gif" width=500 alt="frog" />
+<img src="https://github.com/ntibi/bevy_2d_inverse_kinematics/blob/master/misc/arm.gif" alt="arm" />
+<img src="https://github.com/ntibi/bevy_2d_inverse_kinematics/blob/master/misc/frog.gif" alt="frog" />
 </p>
