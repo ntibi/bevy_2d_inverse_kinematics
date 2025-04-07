@@ -37,6 +37,11 @@ fn setup(
                     ),
                 )))),
             ))
+            .with_child((
+                Transform::from_translation(Vec3::new(10., 0., 1.)),
+                Mesh2d(meshes.add(Circle::new(3.))),
+                MeshMaterial2d(materials.add(Color::srgb(1., 0., 0.))),
+            ))
             .id();
 
         entities.push(id);

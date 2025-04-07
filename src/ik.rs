@@ -116,8 +116,9 @@ fn solve(
     let mut prev_dir: Option<Vec2> = None;
 
     for i in 0..(chain.len() - 1) {
-        let (entity, pos, rot) = chain[i];
-        let (next_entity, ref mut next_pos, _) = chain[i + 1];
+        let (left, right) = chain.split_at_mut(i + 1);
+        let (entity, pos, ref mut rot) = left[i];
+        let (next_entity, ref mut next_pos, _) = right[0];
         let bone = bone_data
             .get(&(entity, next_entity))
             .cloned()
@@ -125,15 +126,18 @@ fn solve(
 
         let mut dir = (*next_pos - pos).normalize();
 
-        if clamp_angle {
-            if let Some(prev_dir) = prev_dir {
-                let angle = prev_dir.angle_to(dir);
+        if let Some(prev_dir) = prev_dir {
+            let angle = prev_dir.angle_to(dir);
+
+            if clamp_angle {
                 if angle > bone.max_angle || angle < -bone.max_angle {
                     let clamped_angle = angle.clamp(-bone.max_angle, bone.max_angle);
                     let rotation = Mat2::from_angle(clamped_angle);
                     dir = rotation * prev_dir;
                 }
             }
+
+            *rot = Quat::from_rotation_z(angle);
         }
 
         *next_pos = pos + dir * bone.length;
