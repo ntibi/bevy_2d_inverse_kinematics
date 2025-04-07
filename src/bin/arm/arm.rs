@@ -1,4 +1,4 @@
-use bevy::{ecs::entity::EntityHashMap, prelude::*, window::PrimaryWindow};
+use bevy::{prelude::*, window::PrimaryWindow};
 use fabrik::ik::{Bone, IKConstraint};
 use std::f32::consts::PI;
 
@@ -47,12 +47,7 @@ fn setup(
     commands.entity(effector).insert(
         IKConstraint::new(entities.clone())
             .with_iterations(10)
-            .with_bone_data(
-                entities
-                    .iter()
-                    .map(|&e| (e, Bone::new(ANGLE, DIST)))
-                    .collect::<EntityHashMap<Bone>>(),
-            ),
+            .with_single_bone_data(Bone::new(ANGLE, DIST)),
     );
 }
 

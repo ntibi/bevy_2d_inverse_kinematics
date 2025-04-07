@@ -1,4 +1,4 @@
-use bevy::{ecs::entity::EntityHashMap, prelude::*};
+use bevy::{prelude::*, utils::HashMap};
 use std::f32::consts::PI;
 
 pub struct IKPlugin;
@@ -40,8 +40,8 @@ pub struct IKConstraint {
     /// path from the anchor of the constraint to the entity holding this component
     chain: Vec<Entity>,
 
-    /// bone data for each entity in the chain
-    bone_data: EntityHashMap<Bone>,
+    /// bone data for each bone in the chain
+    bone_data: HashMap<(Entity, Entity), Bone>,
 
     /// max number of iterations to solve the IK constraint
     iterations: usize,
@@ -57,12 +57,31 @@ impl IKConstraint {
             chain,
             iterations: 10,
             epsilon: 1.0,
-            bone_data: EntityHashMap::default(),
+            bone_data: HashMap::new(),
         }
     }
 
-    pub fn with_bone_data(mut self, bone_data: EntityHashMap<Bone>) -> Self {
-        self.bone_data = bone_data;
+    pub fn with_bone_data(mut self, bone_data: Vec<(Entity, Entity, Bone)>) -> Self {
+        let mut bone_map = HashMap::new();
+
+        for (entity_a, entity_b, bone) in bone_data {
+            bone_map.insert((entity_a, entity_b), bone.clone());
+            bone_map.insert((entity_b, entity_a), bone.clone());
+        }
+
+        self.bone_data.extend(bone_map);
+
+        self
+    }
+
+    /// apply the same bone data to all bones in the chain
+    pub fn with_single_bone_data(mut self, bone: Bone) -> Self {
+        for i in 0..self.chain.len() - 1 {
+            let entity_a = self.chain[i];
+            let entity_b = self.chain[i + 1];
+            self.bone_data.insert((entity_a, entity_b), bone.clone());
+            self.bone_data.insert((entity_b, entity_a), bone.clone());
+        }
         self
     }
 
@@ -86,7 +105,7 @@ impl IKConstraint {
 }
 
 fn solve(
-    bone_data: &EntityHashMap<Bone>,
+    bone_data: &HashMap<(Entity, Entity), Bone>,
     target: Vec2,
     mut chain: Vec<(Entity, Vec2)>,
     clamp_angle: bool,
@@ -98,8 +117,11 @@ fn solve(
 
     for i in 0..(chain.len() - 1) {
         let (entity, pos) = chain[i];
-        let (_, ref mut next_pos) = chain[i + 1];
-        let bone = bone_data.get(&entity).cloned().unwrap_or_default();
+        let (next_entity, ref mut next_pos) = chain[i + 1];
+        let bone = bone_data
+            .get(&(entity, next_entity))
+            .cloned()
+            .unwrap_or_default();
 
         let mut dir = (*next_pos - pos).normalize();
 

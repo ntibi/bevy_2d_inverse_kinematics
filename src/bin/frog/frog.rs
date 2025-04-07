@@ -1,4 +1,4 @@
-use bevy::{ecs::entity::EntityHashMap, prelude::*};
+use bevy::prelude::*;
 use fabrik::ik::{Bone, IKConstraint};
 use std::f32::consts::PI;
 
@@ -59,12 +59,7 @@ fn spawn_arm(
     commands.entity(effector).insert(
         IKConstraint::new(entities.clone())
             .with_iterations(10)
-            .with_bone_data(
-                entities
-                    .iter()
-                    .map(|&e| (e, Bone::new(3. * PI / 4., dist_constraint)))
-                    .collect::<EntityHashMap<Bone>>(),
-            )
+            .with_single_bone_data(Bone::new(3. * PI / 4., dist_constraint))
             .with_target(get_limb_world_pos(len - 1).xy()),
     );
 
