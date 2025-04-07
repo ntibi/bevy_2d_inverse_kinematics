@@ -1,12 +1,14 @@
-# FABRIK
+# bevy_2d_inverse_kinematics
+
+a [bevy](https://bevyengine.org/) plugin for 2d [inverse kinematics](https://en.wikipedia.org/wiki/Inverse_kinematics) solved by [FABRIK](http://www.andreasaristidou.com/FABRIK.html)
+
+
+2d meaning it has 3 degrees of freedom (XY translation, Z rotation)
+
+## FABRIK
 Forward And Backward Reaching Inverse Kinematics
 
 description [here](http://www.andreasaristidou.com/FABRIK.html)
-
-## what's in the crate
-a bevy plugin for 2d inverse kinematics solved by FABRIK
-
-2d meaning it has 3 degrees of freedom (XY translation, Z rotation)
 
 ## examples
 basic IK arm that follows the mouse cursor
