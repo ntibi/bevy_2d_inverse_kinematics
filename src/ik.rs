@@ -107,18 +107,17 @@ impl IKConstraint {
 fn solve(
     bone_data: &HashMap<(Entity, Entity), Bone>,
     target: Vec2,
-    mut chain: Vec<(Entity, Vec2, Quat)>,
+    mut chain: Vec<(Entity, Vec2)>,
     clamp_angle: bool,
-) -> Vec<(Entity, Vec2, Quat)> {
+) -> Vec<(Entity, Vec2)> {
     chain.reverse();
     chain[0].1 = target;
 
     let mut prev_dir: Option<Vec2> = None;
 
     for i in 0..(chain.len() - 1) {
-        let (left, right) = chain.split_at_mut(i + 1);
-        let (entity, pos, ref mut rot) = left[i];
-        let (next_entity, ref mut next_pos, _) = right[0];
+        let (entity, pos) = chain[i];
+        let (next_entity, ref mut next_pos) = chain[i + 1];
         let bone = bone_data
             .get(&(entity, next_entity))
             .cloned()
@@ -136,8 +135,6 @@ fn solve(
                     dir = rotation * prev_dir;
                 }
             }
-
-            *rot = Quat::from_rotation_z(angle);
         }
 
         *next_pos = pos + dir * bone.length;
@@ -162,7 +159,6 @@ fn apply_ik(
                     (
                         *entity,
                         transforms.get(*entity).unwrap().1.translation().xy(),
-                        transforms.get(*entity).unwrap().1.rotation(),
                     )
                 })
                 .collect::<Vec<_>>();
@@ -181,7 +177,16 @@ fn apply_ik(
                 }
             }
 
-            for (entity, new_pos, rot) in chain {
+            for i in 0..chain.len() {
+                let (entity, new_pos) = chain[i];
+                let next_pos = match i {
+                    // get the next position in the chain, to compute the angle
+                    // if none, it means were at the effector, so use the target as the next position
+                    i if i == chain.len() - 1 => target,
+                    _ => chain[i + 1].1,
+                };
+                let rotation = Quat::from_rotation_z(Vec2::X.angle_to(next_pos - new_pos));
+
                 let (parent, _, _) = transforms.get(entity).unwrap();
                 if let Some(parent) = parent {
                     // if parent
@@ -194,7 +199,7 @@ fn apply_ik(
 
                     let new_global_tr = GlobalTransform::from(Transform {
                         translation: new_pos,
-                        rotation: rot,
+                        rotation,
                         scale: transform.scale,
                     });
 
@@ -208,7 +213,7 @@ fn apply_ik(
                     let (_, mut global_tr, mut transform) = transforms.get_mut(entity).unwrap();
                     // if no parent, just set the translation
                     transform.translation = new_pos.extend(transform.translation.z);
-                    transform.rotation = rot;
+                    transform.rotation = rotation;
                     *global_tr = GlobalTransform::from(*transform);
                 }
             }
