@@ -37,7 +37,7 @@
 			"children":[
 				0
 			],
-			"name":"foot",
+			"name":"foot bone",
 			"translation":[
 				0,
 				0.03999999165534973,
@@ -69,7 +69,7 @@
 				1,
 				2
 			],
-			"name":"foreleg",
+			"name":"foreleg bone",
 			"translation":[
 				0,
 				0.040000006556510925,
@@ -101,7 +101,7 @@
 				3,
 				4
 			],
-			"name":"leg",
+			"name":"leg bone",
 			"rotation":[
 				1.4189485852966754e-07,
 				1.4189485852966754e-07,
@@ -168,7 +168,7 @@
 				5,
 				8
 			],
-			"name":"body",
+			"name":"body bone",
 			"translation":[
 				0,
 				0.6600000262260437,
@@ -219,7 +219,7 @@
 	],
 	"meshes":[
 		{
-			"name":"Cube.015",
+			"name":"right front foot mesh",
 			"primitives":[
 				{
 					"attributes":{
@@ -233,7 +233,7 @@
 			]
 		},
 		{
-			"name":"Cube.014",
+			"name":"right front foreleg mesh",
 			"primitives":[
 				{
 					"attributes":{
@@ -247,7 +247,7 @@
 			]
 		},
 		{
-			"name":"Cube.012",
+			"name":"right front leg mesh",
 			"primitives":[
 				{
 					"attributes":{
@@ -261,7 +261,7 @@
 			]
 		},
 		{
-			"name":"Cube.024",
+			"name":"left eye mesh",
 			"primitives":[
 				{
 					"attributes":{
@@ -275,7 +275,7 @@
 			]
 		},
 		{
-			"name":"Cube.027",
+			"name":"right eye mesh",
 			"primitives":[
 				{
 					"attributes":{
