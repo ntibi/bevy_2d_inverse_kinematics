@@ -107,17 +107,17 @@ impl IKConstraint {
 fn solve(
     bone_data: &HashMap<(Entity, Entity), Bone>,
     target: Vec2,
-    mut chain: Vec<(Entity, Vec2)>,
+    mut chain: Vec<(Entity, Vec2, Quat)>,
     clamp_angle: bool,
-) -> Vec<(Entity, Vec2)> {
+) -> Vec<(Entity, Vec2, Quat)> {
     chain.reverse();
     chain[0].1 = target;
 
     let mut prev_dir: Option<Vec2> = None;
 
     for i in 0..(chain.len() - 1) {
-        let (entity, pos) = chain[i];
-        let (next_entity, ref mut next_pos) = chain[i + 1];
+        let (entity, pos, rot) = chain[i];
+        let (next_entity, ref mut next_pos, _) = chain[i + 1];
         let bone = bone_data
             .get(&(entity, next_entity))
             .cloned()
@@ -158,6 +158,7 @@ fn apply_ik(
                     (
                         *entity,
                         transforms.get(*entity).unwrap().1.translation().xy(),
+                        transforms.get(*entity).unwrap().1.rotation(),
                     )
                 })
                 .collect::<Vec<_>>();
@@ -176,7 +177,7 @@ fn apply_ik(
                 }
             }
 
-            for (entity, new_pos) in chain {
+            for (entity, new_pos, rot) in chain {
                 let (parent, _, _) = transforms.get(entity).unwrap();
                 if let Some(parent) = parent {
                     // if parent
@@ -187,24 +188,23 @@ fn apply_ik(
                     let (_, _, transform) = transforms.get(entity).unwrap();
                     let new_pos = new_pos.extend(transform.translation.z);
 
-                    // compute translation from world space to parent space
-                    let new_translation = parent_global_tr
-                        .compute_matrix()
-                        .inverse()
-                        .transform_point3(new_pos)
-                        .xy()
-                        .extend(transform.translation.z);
+                    let new_global_tr = GlobalTransform::from(Transform {
+                        translation: new_pos,
+                        rotation: rot,
+                        scale: transform.scale,
+                    });
 
                     let (_, mut global_tr, mut transform) = transforms.get_mut(entity).unwrap();
-                    transform.translation = new_translation;
+                    *transform = new_global_tr.reparented_to(&parent_global_tr);
                     // here we re-do the job of propagate_transforms
                     // because we are scheduled to run after it's done (to have the hierarchy movement applied)
                     // but we still need the transform and global transform to be in synnc
-                    *global_tr = parent_global_tr.mul_transform(*transform);
+                    *global_tr = new_global_tr;
                 } else {
                     let (_, mut global_tr, mut transform) = transforms.get_mut(entity).unwrap();
                     // if no parent, just set the translation
                     transform.translation = new_pos.extend(transform.translation.z);
+                    transform.rotation = rot;
                     *global_tr = GlobalTransform::from(*transform);
                 }
             }
