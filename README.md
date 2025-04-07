@@ -16,7 +16,7 @@ basic IK arm that follows the mouse cursor
 cargo run --example arm
 ```
 
-cute frog procedurally walking with IK animated leg
+cute frog procedurally walking with IK animated legs
 ```
 cargo run --example frog
 ```
