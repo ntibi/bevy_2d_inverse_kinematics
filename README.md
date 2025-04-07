@@ -3,12 +3,23 @@ Forward And Backward Reaching Inverse Kinematics
 
 description [here](http://www.andreasaristidou.com/FABRIK.html)
 
-## running the app
-`cargo run --release`
+## what's in the crate
+a bevy plugin for 2d inverse kinematics solved by FABRIK
 
-## keybinds
-`WASD`: move the frog around
+2d meaning it has 3 degrees of freedom (XY translation, Z rotation)
 
-`QE`: rotate the frog around
+## examples
+basic IK arm that follows the mouse cursor
+```
+cargo run --example arm
+```
 
-`scroll`: control zoom
+cute frog procedurally walking with IK animated leg
+```
+cargo run --example frog
+```
+
+equally cute frog from a gltf model with a single arm that follows the mouse
+```
+cargo run --example model
+```
