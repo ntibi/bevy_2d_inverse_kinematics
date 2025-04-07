@@ -2,6 +2,12 @@
 name = "fabrik"
 version = "0.1.0"
 edition = "2021"
+description = "A 2D inverse kinematics plugin for Bevy"
+repository = "https://github.com/ntibi/FABRIK"
+readme = "README.md"
+license-file = "LICENSE"
+keywords = ["bevy", "fabrik", "2d", "inverse-kinematics", "animation"]
+categories = ["game-development", "simulation", "games"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
