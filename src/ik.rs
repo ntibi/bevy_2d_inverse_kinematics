@@ -1,6 +1,7 @@
 use bevy::{prelude::*, utils::HashMap};
 use std::f32::consts::PI;
 
+/// add this plugin to your app to have IK constraints solved every frame
 pub struct IKPlugin;
 
 impl Plugin for IKPlugin {
@@ -48,6 +49,8 @@ impl Joint {
 }
 
 /// add this component to an entity to make it the effector of an IK chain
+/// all the entities in the chain must have a `Transform` and `GlobalTransform` component
+/// their transform and global transform will be updated to satisfy the IK constraints
 #[derive(Component)]
 pub struct IKConstraint {
     /// target position for the end of the chain
