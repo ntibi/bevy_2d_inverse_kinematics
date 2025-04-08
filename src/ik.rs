@@ -54,22 +54,22 @@ impl Joint {
 #[derive(Component)]
 pub struct IKConstraint {
     /// target position for the end of the chain
-    target: Option<Vec2>,
+    pub target: Option<Vec2>,
     /// path from the anchor of the constraint to the entity holding this component
-    chain: Vec<Entity>,
+    pub chain: Vec<Entity>,
 
     /// bone data for each bone in the chain
-    bone_data: HashMap<(Entity, Entity), Bone>,
+    pub bone_data: HashMap<(Entity, Entity), Bone>,
 
     /// bone data for each bone in the chain
-    joint_data: HashMap<Entity, Joint>,
+    pub joint_data: HashMap<Entity, Joint>,
 
     /// max number of iterations to solve the IK constraint
-    iterations: usize,
+    pub iterations: usize,
 
     /// epsilon to consider the constraint solved
     /// must be smaller than the smaller distance constraint
-    epsilon: f32,
+    pub epsilon: f32,
 }
 
 impl IKConstraint {
