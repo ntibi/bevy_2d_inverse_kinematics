@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use bevy_2d_inverse_kinematics::{Bone, IKConstraint};
+use bevy_2d_inverse_kinematics::{Bone, IKConstraint, JointConstraint};
 use std::f32::consts::PI;
 
 pub struct FrogPlugin;
@@ -59,7 +59,12 @@ fn spawn_arm(
     commands.entity(effector).insert(
         IKConstraint::new(entities.clone())
             .with_iterations(10)
-            .with_single_bone_data(Bone::new(3. * PI / 4., dist_constraint))
+            .with_joint_constraints(
+                entities
+                    .iter()
+                    .map(|e| (*e, JointConstraint::new(3. * PI / 4., 3. * PI / 4.)))
+                    .collect::<Vec<_>>(),
+            )
             .with_target(get_limb_world_pos(len - 1).xy())
             .with_epsilon(0.01),
     );
