@@ -33,6 +33,25 @@ impl Bone {
     }
 }
 
+/// default angle of a joint in resting position
+/// relative to the chain's previous bone angle
+#[derive(Clone)]
+pub struct Joint {
+    angle: f32,
+}
+
+impl Default for Joint {
+    fn default() -> Self {
+        Self::new(0.)
+    }
+}
+
+impl Joint {
+    pub fn new(angle: f32) -> Self {
+        Self { angle }
+    }
+}
+
 /// angle constraint of a joint
 #[derive(Clone)]
 pub struct JointConstraint {
@@ -69,19 +88,24 @@ pub struct IKConstraint {
 
     /// path from the anchor of the constraint to the entity holding this component
     /// the first entity in the chain is the anchor
-    ///   it won't move nor rotate (ie: the body)
+    ///   it won't move, but it can rotate (ie: the shoulder)
     /// the last entity in the chain is the effector
     ///   it will move and rotate to the target (ie: the hand)
     /// so a chain needs at least 3 entities (anchor, joint, effector)
     ///
-    /// chain example: [body, shoulder, elbow, wrist, hand]
+    /// chain example: [shoulder, elbow, wrist, hand]
     /// the body wont be affected by the IK
     /// the hand will try to be respect `target` and `target_angle`
     /// the rest of the joints will accomodate
     pub chain: Vec<Entity>,
 
-    /// bone data for each bone in the chain
+    /// bone length for each bone in the chain
+    /// it will get computed automatically when the chain is created
     pub bone_data: HashMap<(Entity, Entity), Bone>,
+
+    /// joint base rotations for each joint in the chain
+    /// it will get computed automatically when the chain is created
+    pub joint_data: HashMap<Entity, Joint>,
 
     // joint data for each joint in the chain
     pub joint_constraints: HashMap<Entity, JointConstraint>,
@@ -107,6 +131,7 @@ impl IKConstraint {
             epsilon: 1.0,
             angle_epsilon: 1.0,
             bone_data: HashMap::new(),
+            joint_data: HashMap::new(),
             joint_constraints: HashMap::new(),
         }
     }
@@ -263,6 +288,7 @@ impl IKConstraint {
         // while respecting the length and angle constraints
         // iter from anchor to effector
         // e0 will pull e1
+        // and rotate e0 accordingly
         for i in 0..self.chain.len() - 1 {
             let e0 = self.chain[i];
             let e1 = self.chain[i + 1];
@@ -273,27 +299,28 @@ impl IKConstraint {
 
             let mut dir = (e1_pos - e0_pos).normalize();
             let mut dist = e1_pos.distance(e0_pos);
-            let mut rot = e1_gtr.rotation().to_euler(EulerRot::XYZ).2;
 
             if let Some(bone) = self.bone_data.get(&(e0, e1)) {
                 dist = bone.length;
             }
 
-            if let Some(prev_dir) = prev_dir {
-                if let Some(&JointConstraint { ccw, cw }) = self.joint_constraints.get(&e0) {
-                    let angle = prev_dir.angle_to(dir);
-                    if angle < -ccw || angle > cw {
-                        let angle = angle.clamp(-ccw, cw);
-                        let rotation = Mat2::from_angle(angle);
-                        dir = rotation * prev_dir;
-                    }
-                }
-            }
+            // TODO unwrap or anchor default angle
+            // how to represent and get the anchor angle ?
+            // todo
+            let base_dir = prev_dir.unwrap_or(Vec2::X);
+
+            let angle = base_dir.angle_to(dir);
+            let rotation = Mat2::from_angle(match self.joint_constraints.get(&e0) {
+                Some(&JointConstraint { ccw, cw }) => angle.clamp(-cw, ccw),
+                None => angle,
+            });
+
+            dir = rotation * base_dir;
 
             let new_e1_pos = e0_pos + dir * dist;
             self.set_position(e1, new_e1_pos, parents, transforms);
-            // TODO
-            self.set_rotation(e1, rot, parents, transforms);
+
+            self.set_rotation(e0, dir.to_angle(), parents, transforms);
 
             prev_dir = Some(dir);
         }
@@ -375,59 +402,3 @@ fn map_new_ik(
         }
     }
 }
-
-//fn debug_ik(
-//ik_constraints: Query<&IKConstraint, With<DebugIKConstraint>>,
-//entities: Query<&GlobalTransform>,
-//mut gizmos: Gizmos,
-//) {
-//for ik in &ik_constraints {
-//for &e in &ik.chain {
-//if let Ok(tr) = entities.get(e) {
-//gizmos.circle_2d(tr.translation().xy(), 0.01, color::palettes::basic::GREEN);
-//}
-//}
-
-//for i in 0..ik.chain.len() {
-//let e0 = match i {
-//i if i > 0 => Some(&ik.chain[i - 1]),
-//_ => None,
-//};
-//let e1 = ik.chain.get(i);
-//let e2 = ik.chain.get(i + 1);
-
-//match (e0, e1, e2) {
-//(Some(&e0), Some(&e1), Some(&e2)) => {
-//if let (Ok(tr0), Ok(tr1), Ok(tr2)) =
-//(entities.get(e0), entities.get(e1), entities.get(e2))
-//{
-//gizmos.line_2d(
-//tr1.translation().xy(),
-//tr2.translation().xy(),
-//color::palettes::basic::GREEN,
-//);
-
-//let dir = (tr1.translation().xy() - tr0.translation().xy()).normalize();
-
-//let &JointAngleConstraint { ccw, cw } =
-//ik.joint_data.get(&e1).unwrap();
-
-//let distance = ik.bone_data.get(&(e1, e2)).unwrap().length;
-
-//gizmos.arc_2d(
-//Isometry2d {
-//translation: tr1.translation().xy(),
-//rotation: Rot2::radians(-cw)
-//* Rot2::radians(-dir.angle_to(Vec2::Y)),
-//},
-//ccw + cw,
-//distance,
-//color::palettes::basic::PURPLE,
-//);
-//}
-//}
-//_ => (),
-//}
-//}
-//}
-//}
