@@ -288,7 +288,18 @@ impl IKConstraint {
             transforms,
         );
 
-        let mut prev_dir = self.anchor_dir;
+        // use the anchor's (potentially relative, if it has a parent) rotation as the original direction
+        // to also apply the angle constraint on the anchor rotation
+        let mut prev_dir = match parents.get(*anchor) {
+            Ok(parent) => transforms
+                .get(**parent)
+                .unwrap()
+                .0
+                .rotation()
+                .mul_vec3(self.anchor_dir.extend(0.))
+                .xy(),
+            Err(_) => self.anchor_dir,
+        };
 
         // pull the chain to the anchor
         // while respecting the length and angle constraints
