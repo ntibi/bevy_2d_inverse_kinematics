@@ -1,3 +1,3 @@
 mod ik;
 
-pub use ik::{Bone, IKConstraint, IKPlugin, Joint};
+pub use ik::{Bone, IKConstraint, IKPlugin, JointConstraint};

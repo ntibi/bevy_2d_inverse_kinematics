@@ -1,5 +1,5 @@
 use bevy::{prelude::*, window::PrimaryWindow};
-use bevy_2d_inverse_kinematics::{Bone, IKConstraint};
+use bevy_2d_inverse_kinematics::{Bone, IKConstraint, JointConstraint};
 use std::f32::consts::PI;
 
 pub struct ArmPlugin;
@@ -52,7 +52,12 @@ fn setup(
     commands.entity(effector).insert(
         IKConstraint::new(entities.clone())
             .with_iterations(10)
-            .with_single_bone_data(Bone::new(ANGLE, DIST)),
+            .with_joint_constraints(
+                entities
+                    .iter()
+                    .map(|e| (*e, JointConstraint::new(ANGLE, ANGLE)))
+                    .collect::<Vec<_>>(),
+            ),
     );
 }
 

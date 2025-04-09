@@ -1,7 +1,9 @@
 use std::f32::consts::PI;
 
 use bevy::{prelude::*, scene::SceneInstanceReady, window::PrimaryWindow};
-use bevy_2d_inverse_kinematics::{Bone, IKConstraint, Joint};
+use bevy_2d_inverse_kinematics::{
+    Bone, DebugIKConstraint, IKConstraint, Joint, JointAngleConstraint,
+};
 
 pub struct RiggedModelPlugin;
 
@@ -10,9 +12,15 @@ const ROTATION_SPEED: f32 = PI;
 
 impl Plugin for RiggedModelPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, setup)
+        app.add_systems(Startup, (setup, configure_gizmos))
             .add_systems(Update, (input, movement).chain())
             .add_systems(Update, (update_target).chain());
+    }
+}
+
+fn configure_gizmos(mut conf: ResMut<GizmoConfigStore>) {
+    for (_, c, _) in conf.iter_mut() {
+        c.depth_bias = -1.;
     }
 }
 
@@ -23,7 +31,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             Movable,
             Velocity::default(),
             AngularVelocity::default(),
-            SceneRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset("frog.gltf"))),
+            // TODO test with and without this initial transform
+            //Transform::from_rotation(Quat::from_rotation_z(PI / 2.)),
+            SceneRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset("char.gltf"))),
         ))
         .observe(map_ik);
 }
@@ -32,8 +42,7 @@ fn get_bones<const N: usize>(
     start: Entity,
     keys: [&str; N],
     query: &Query<(Option<&Name>, Option<&Children>)>,
-    transform_helper: &TransformHelper,
-) -> Option<[(Entity, Vec2, f32); N]> {
+) -> Option<[Entity; N]> {
     let mut found = [None; N];
 
     let mut to_visit = vec![start];
@@ -44,13 +53,7 @@ fn get_bones<const N: usize>(
         for (i, key) in keys.iter().enumerate() {
             if let Some(name) = name {
                 if name.as_str() == *key {
-                    let tr = transform_helper.compute_global_transform(entity).unwrap();
-
-                    found[i] = Some((
-                        entity,
-                        tr.translation().xy(),
-                        tr.rotation().to_euler(EulerRot::XYZ).2,
-                    ));
+                    found[i] = Some(entity);
                 }
             }
         }
@@ -71,43 +74,56 @@ fn map_ik(
     trigger: Trigger<SceneInstanceReady>,
     query: Query<(Option<&Name>, Option<&Children>)>,
     mut commands: Commands,
-    transform_helper: TransformHelper,
 ) {
-    let [leg, foreleg, foot] = match get_bones(
-        trigger.entity(),
-        ["leg bone", "foreleg bone", "foot bone"],
-        &query,
-        &transform_helper,
-    ) {
-        None => {
-            warn!("skipping IK mapping for {}", trigger.entity());
-            return;
-        }
-        Some(bones) => bones,
-    };
+    let [left_arm, left_forearm, left_hand, left_hand_effector, right_arm, right_forearm, right_hand, right_hand_effector] =
+        match get_bones(
+            trigger.entity(),
+            [
+                "left arm bone",
+                "left forearm bone",
+                "left hand bone",
+                "left hand effector",
+                "right arm bone",
+                "right forearm bone",
+                "right hand bone",
+                "right hand effector",
+            ],
+            &query,
+        ) {
+            None => {
+                warn!("skipping IK mapping for {}", trigger.entity());
+                return;
+            }
+            Some(bones) => bones,
+        };
 
-    commands.entity(foot.0).insert(
-        IKConstraint::new(vec![leg.0, foreleg.0, foot.0])
-            .with_iterations(10)
-            .with_bone_data(vec![
-                (
-                    leg.0,
-                    foreleg.0,
-                    Bone::new(PI / 2., leg.1.distance(foreleg.1)),
-                ),
-                (
-                    foreleg.0,
-                    foot.0,
-                    Bone::new(PI / 2., leg.1.distance(foreleg.1)),
-                ),
-            ])
-            .with_joint_data(vec![
-                (leg.0, Joint::new(leg.2)),
-                (foreleg.0, Joint::new(foreleg.2)),
-                (foot.0, Joint::new(foot.2)),
-            ])
-            .with_epsilon(0.001),
-    );
+    commands.entity(left_hand).insert((
+        DebugIKConstraint,
+        IKConstraint::new(vec![left_arm, left_forearm, left_hand, left_hand_effector])
+            .with_iterations(1)
+            .with_epsilon(0.001)
+            .with_angle_constraints(vec![
+                (left_arm, JointAngleConstraint::new(0., PI / 2.)),
+                (left_forearm, JointAngleConstraint::new(0., PI)),
+                (left_hand, JointAngleConstraint::new(PI / 2., PI / 2.)),
+            ]),
+    ));
+    //commands.entity(right_hand).insert((
+    //DebugIKConstraint,
+    //IKConstraint::new(vec![
+    //right_arm,
+    //right_forearm,
+    //right_hand,
+    //right_hand_effector,
+    //])
+    //.with_iterations(100)
+    //.with_epsilon(0.001)
+    //.with_angle_constraints(vec![
+    //(right_arm, JointAngleConstraint::new(PI / 2., 0.)),
+    //(right_forearm, JointAngleConstraint::new(PI, 0.)),
+    //(right_hand, JointAngleConstraint::new(PI / 2., PI / 2.)),
+    //]),
+    //));
 }
 
 fn update_target(
@@ -151,18 +167,18 @@ fn input(
         let mut rotation = 0.;
 
         if keyboard_input.pressed(KeyCode::KeyW) {
-            dir += Vec2::Y;
+            dir += Vec2::X;
         }
 
         if keyboard_input.pressed(KeyCode::KeyS) {
-            dir -= Vec2::Y;
+            dir -= Vec2::X;
         }
 
         if keyboard_input.pressed(KeyCode::KeyA) {
-            dir -= Vec2::X;
+            dir -= Vec2::Y;
         }
         if keyboard_input.pressed(KeyCode::KeyD) {
-            dir += Vec2::X;
+            dir += Vec2::Y;
         }
 
         if keyboard_input.pressed(KeyCode::KeyQ) {

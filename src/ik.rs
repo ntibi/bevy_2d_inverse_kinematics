@@ -1,4 +1,4 @@
-use bevy::{prelude::*, utils::HashMap};
+use bevy::{color, ecs::query::QueryEntityError, prelude::*, utils::HashMap};
 use std::f32::consts::PI;
 
 /// add this plugin to your app to have IK constraints solved every frame
@@ -8,43 +8,51 @@ impl Plugin for IKPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
             PostUpdate,
-            apply_ik.after(TransformSystem::TransformPropagate),
+            (map_new_ik, apply_ik)
+                .chain()
+                .after(TransformSystem::TransformPropagate),
         );
     }
 }
 
-/// constraints of a bone (which is a relation between two `Joint`
+/// length constraint of a bone (which is a relation between two `Joint`s)
 #[derive(Clone)]
 pub struct Bone {
-    max_angle: f32,
     length: f32,
 }
 
 impl Default for Bone {
     fn default() -> Self {
-        Self {
-            max_angle: 3. * PI / 4.,
-            length: 10.0,
-        }
+        Self::new(10.0)
     }
 }
 
 impl Bone {
-    pub fn new(max_angle: f32, length: f32) -> Self {
-        Self { max_angle, length }
+    pub fn new(length: f32) -> Self {
+        Self { length }
     }
 }
 
-#[derive(Clone, Default)]
-pub struct Joint {
-    /// default angle of this joint (in rad)
-    /// 0. means a 0 angle from Vec2::X
-    angle: f32,
+/// angle constraint of a joint
+#[derive(Clone)]
+pub struct JointConstraint {
+    /// max counter clockwise angle from initial angle
+    /// must be between -PI and PI
+    ccw: f32,
+    /// max clockwise angle from initial angle
+    /// must be between -PI and PI
+    cw: f32,
 }
 
-impl Joint {
-    pub fn new(angle: f32) -> Self {
-        Self { angle }
+impl Default for JointConstraint {
+    fn default() -> Self {
+        Self::new(PI / 2., PI / 2.)
+    }
+}
+
+impl JointConstraint {
+    pub fn new(ccw: f32, cw: f32) -> Self {
+        Self { ccw, cw }
     }
 }
 
@@ -53,16 +61,30 @@ impl Joint {
 /// their transform and global transform will be updated to satisfy the IK constraints
 #[derive(Component)]
 pub struct IKConstraint {
-    /// target position for the end of the chain
+    /// target position for the effector
     pub target: Option<Vec2>,
+
+    /// target rotation for the effector
+    pub target_angle: Option<f32>,
+
     /// path from the anchor of the constraint to the entity holding this component
+    /// the first entity in the chain is the anchor
+    ///   it won't move nor rotate (ie: the body)
+    /// the last entity in the chain is the effector
+    ///   it will move and rotate to the target (ie: the hand)
+    /// so a chain needs at least 3 entities (anchor, joint, effector)
+    ///
+    /// chain example: [body, shoulder, elbow, wrist, hand]
+    /// the body wont be affected by the IK
+    /// the hand will try to be respect `target` and `target_angle`
+    /// the rest of the joints will accomodate
     pub chain: Vec<Entity>,
 
     /// bone data for each bone in the chain
     pub bone_data: HashMap<(Entity, Entity), Bone>,
 
-    /// bone data for each bone in the chain
-    pub joint_data: HashMap<Entity, Joint>,
+    // joint data for each joint in the chain
+    pub joint_constraints: HashMap<Entity, JointConstraint>,
 
     /// max number of iterations to solve the IK constraint
     pub iterations: usize,
@@ -70,46 +92,27 @@ pub struct IKConstraint {
     /// epsilon to consider the constraint solved
     /// must be smaller than the smaller distance constraint
     pub epsilon: f32,
+    /// epsilon to consider the constraint solved
+    /// must be smaller than the smaller angle constraint (in rad)
+    pub angle_epsilon: f32,
 }
 
 impl IKConstraint {
     pub fn new(chain: Vec<Entity>) -> Self {
         Self {
             target: None,
+            target_angle: None,
             chain,
             iterations: 10,
             epsilon: 1.0,
+            angle_epsilon: 1.0,
             bone_data: HashMap::new(),
-            joint_data: HashMap::new(),
+            joint_constraints: HashMap::new(),
         }
     }
 
-    pub fn with_bone_data(mut self, bone_data: Vec<(Entity, Entity, Bone)>) -> Self {
-        let mut bone_map = HashMap::new();
-
-        for (entity_a, entity_b, bone) in bone_data {
-            bone_map.insert((entity_a, entity_b), bone.clone());
-            bone_map.insert((entity_b, entity_a), bone.clone());
-        }
-
-        self.bone_data.extend(bone_map);
-
-        self
-    }
-
-    /// apply the same bone data to all bones in the chain
-    pub fn with_single_bone_data(mut self, bone: Bone) -> Self {
-        for i in 0..self.chain.len() - 1 {
-            let entity_a = self.chain[i];
-            let entity_b = self.chain[i + 1];
-            self.bone_data.insert((entity_a, entity_b), bone.clone());
-            self.bone_data.insert((entity_b, entity_a), bone.clone());
-        }
-        self
-    }
-
-    pub fn with_joint_data(mut self, joint_data: Vec<(Entity, Joint)>) -> Self {
-        self.joint_data.extend(joint_data.into_iter());
+    pub fn with_joint_constraints(mut self, constraints: Vec<(Entity, JointConstraint)>) -> Self {
+        self.joint_constraints.extend(constraints);
         self
     }
 
@@ -128,159 +131,303 @@ impl IKConstraint {
         self
     }
 
+    pub fn with_angle_epsilon(mut self, angle_epsilon: f32) -> Self {
+        self.angle_epsilon = angle_epsilon;
+        self
+    }
+
     pub fn target(&mut self, target: Vec2) {
         self.target = Some(target);
     }
 
+    pub fn target_angle(&mut self, rot: f32) {
+        self.target_angle = Some(rot);
+    }
+
     pub fn untarget(&mut self) {
         self.target = None;
+        self.target_angle = None;
     }
-}
 
-fn solve(
-    bone_data: &HashMap<(Entity, Entity), Bone>,
-    target: Vec2,
-    mut chain: Vec<(Entity, Vec2)>,
-    clamp_angle: bool,
-) -> Vec<(Entity, Vec2)> {
-    chain.reverse();
-    chain[0].1 = target;
-
-    let mut prev_dir: Option<Vec2> = None;
-
-    for i in 0..(chain.len() - 1) {
-        let (entity, pos) = chain[i];
-        let (next_entity, ref mut next_pos) = chain[i + 1];
-        let bone = bone_data
-            .get(&(entity, next_entity))
-            .cloned()
-            .unwrap_or_default();
-
-        let mut dir = (*next_pos - pos).normalize();
-
-        if let Some(prev_dir) = prev_dir {
-            let angle = prev_dir.angle_to(dir);
-
-            if clamp_angle {
-                if angle > bone.max_angle || angle < -bone.max_angle {
-                    let clamped_angle = angle.clamp(-bone.max_angle, bone.max_angle);
-                    let rotation = Mat2::from_angle(clamped_angle);
-                    dir = rotation * prev_dir;
+    /// set absolute posiiton of an entity
+    /// wether it's an orphan entity or a child of another entity
+    fn set_position(
+        &self,
+        entity: Entity,
+        pos: Vec2,
+        parents: &Query<&Parent>,
+        transforms: &mut Query<(&mut GlobalTransform, &mut Transform)>,
+    ) {
+        match parents.get(entity) {
+            Ok(parent) => {
+                if let Ok([(mut gtr, mut tr), (parent_gtr, _)]) =
+                    transforms.get_many_mut([entity, **parent])
+                {
+                    let new_global_tr = GlobalTransform::from(Transform {
+                        translation: pos.extend(gtr.translation().z),
+                        rotation: gtr.rotation(),
+                        scale: gtr.scale(),
+                    });
+                    *tr = new_global_tr.reparented_to(&parent_gtr);
+                    *gtr = new_global_tr;
+                }
+            }
+            Err(_) => {
+                if let Ok((mut gtr, mut tr)) = transforms.get_mut(entity) {
+                    tr.translation = pos.extend(tr.translation.z);
+                    *gtr = GlobalTransform::from(*tr);
                 }
             }
         }
-
-        *next_pos = pos + dir * bone.length;
-
-        prev_dir = Some(dir);
     }
 
-    chain.reverse();
-    chain
+    /// set absolute rotation of an entity
+    /// wether it's an orphan entity or a child of another entity
+    fn set_rotation(
+        &self,
+        entity: Entity,
+        rot: f32,
+        parents: &Query<&Parent>,
+        transforms: &mut Query<(&mut GlobalTransform, &mut Transform)>,
+    ) {
+        match parents.get(entity) {
+            Ok(parent) => {
+                if let Ok([(mut gtr, mut tr), (parent_gtr, _)]) =
+                    transforms.get_many_mut([entity, **parent])
+                {
+                    let new_global_tr = GlobalTransform::from(Transform {
+                        translation: gtr.translation(),
+                        rotation: Quat::from_rotation_z(rot),
+                        scale: gtr.scale(),
+                    });
+                    *tr = new_global_tr.reparented_to(&parent_gtr);
+                    *gtr = new_global_tr;
+                }
+            }
+            Err(_) => {
+                if let Ok((mut gtr, mut tr)) = transforms.get_mut(entity) {
+                    tr.rotation = Quat::from_rotation_z(rot);
+                    *gtr = GlobalTransform::from(*tr);
+                }
+            }
+        }
+    }
+
+    fn solve_iteration(
+        &self,
+        parents: &Query<&Parent>,
+        transforms: &mut Query<(&mut GlobalTransform, &mut Transform)>,
+    ) {
+        let effector = self.chain.last().unwrap();
+
+        if let Some(target) = self.target {
+            self.set_position(*effector, target, parents, transforms);
+        }
+        if let Some(target_angle) = self.target_angle {
+            self.set_rotation(*effector, target_angle, parents, transforms);
+        }
+
+        let anchor = self.chain.first().unwrap();
+        let anchor_gtr = transforms.get(*anchor).unwrap().0.clone();
+
+        // pull the chain to the effector
+        // while respecting the length constraints
+        // iter from effector to anchor
+        // e1 will pull e0
+        for i in (1..self.chain.len()).rev() {
+            let e1 = self.chain[i];
+            let e0 = self.chain[i - 1];
+
+            let bone = self.bone_data.get(&(e1, e0)).unwrap();
+
+            let [(e1_gtr, _), (e0_gtr, _)] = transforms.get_many([e1, e0]).unwrap();
+            let e1_pos = e1_gtr.translation().xy();
+            let e0_pos = e0_gtr.translation().xy();
+            if e1_pos.distance(e0_pos) > bone.length {
+                let new_e0_pos = e1_pos + (e0_pos - e1_pos).normalize() * bone.length;
+                self.set_position(e0, new_e0_pos, parents, transforms);
+            }
+        }
+
+        self.set_position(*anchor, anchor_gtr.translation().xy(), parents, transforms);
+        self.set_rotation(
+            *anchor,
+            anchor_gtr.rotation().to_euler(EulerRot::XYZ).2,
+            parents,
+            transforms,
+        );
+
+        let mut prev_dir: Option<Vec2> = None;
+
+        // pull the chain to the anchor
+        // while respecting the length and angle constraints
+        // iter from anchor to effector
+        // e0 will pull e1
+        for i in 0..self.chain.len() - 1 {
+            let e0 = self.chain[i];
+            let e1 = self.chain[i + 1];
+
+            let [(e1_gtr, _), (e0_gtr, _)] = transforms.get_many([e1, e0]).unwrap();
+            let e1_pos = e1_gtr.translation().xy();
+            let e0_pos = e0_gtr.translation().xy();
+
+            let mut dir = (e1_pos - e0_pos).normalize();
+            let mut dist = e1_pos.distance(e0_pos);
+            let mut rot = e1_gtr.rotation().to_euler(EulerRot::XYZ).2;
+
+            if let Some(bone) = self.bone_data.get(&(e0, e1)) {
+                dist = bone.length;
+            }
+
+            if let Some(prev_dir) = prev_dir {
+                if let Some(&JointConstraint { ccw, cw }) = self.joint_constraints.get(&e0) {
+                    let angle = prev_dir.angle_to(dir);
+                    if angle < -ccw || angle > cw {
+                        let angle = angle.clamp(-ccw, cw);
+                        let rotation = Mat2::from_angle(angle);
+                        dir = rotation * prev_dir;
+                    }
+                }
+            }
+
+            let new_e1_pos = e0_pos + dir * dist;
+            self.set_position(e1, new_e1_pos, parents, transforms);
+            // TODO
+            self.set_rotation(e1, rot, parents, transforms);
+
+            prev_dir = Some(dir);
+        }
+    }
+
+    fn solve(
+        &self,
+        parents: &Query<&Parent>,
+        transforms: &mut Query<(&mut GlobalTransform, &mut Transform)>,
+    ) {
+        let effector = self.chain.last().unwrap();
+
+        for _ in 0..self.iterations {
+            // early break if both effector constraints are within epsilons
+            // or if there are no constrains
+            let effector_gtr = transforms.get(*effector).unwrap().0;
+            if self.target.map_or(true, |target| {
+                effector_gtr.translation().xy().distance_squared(target)
+                    < self.epsilon * self.epsilon
+            }) && self.target_angle.map_or(true, |target| {
+                (target - effector_gtr.rotation().to_euler(EulerRot::XYZ).2).abs()
+                    < self.angle_epsilon
+            }) {
+                break;
+            }
+
+            self.solve_iteration(parents, transforms);
+        }
+    }
 }
 
 fn apply_ik(
     ik_constraints: Query<&IKConstraint>,
-    mut transforms: Query<(Option<&Parent>, &mut GlobalTransform, &mut Transform)>,
+    parents: Query<&Parent>,
+    mut transforms: Query<(&mut GlobalTransform, &mut Transform)>,
 ) {
     for constraint in ik_constraints.iter() {
-        if let Some(target) = constraint.target {
-            let mut chain = constraint
-                .chain
-                .iter()
-                .map(|entity| {
-                    (
-                        *entity,
-                        transforms.get(*entity).unwrap().1.translation().xy(),
-                    )
-                })
-                .collect::<Vec<_>>();
+        constraint.solve(&parents, &mut transforms);
+    }
+}
 
-            let anchor = chain[0].1;
+fn map_new_ik(
+    mut ik_constraints: Query<&mut IKConstraint, Added<IKConstraint>>,
+    entities: Query<&GlobalTransform>,
+) {
+    for mut ik in &mut ik_constraints {
+        match ik
+            .chain
+            .iter()
+            .map(|&e| Ok(entities.get(e)?))
+            .into_iter()
+            .collect::<Result<Vec<_>, QueryEntityError>>()
+        {
+            Ok(transforms) => {
+                let mut prev: Option<(Entity, &GlobalTransform)> = None;
 
-            for _ in 0..constraint.iterations {
-                chain = solve(&constraint.bone_data, target, chain, false);
-                chain.reverse();
-                // only apply rotation constraint on the backward pass
-                chain = solve(&constraint.bone_data, anchor, chain, true);
-                chain.reverse();
+                for (e, tr) in ik.chain.clone().into_iter().zip(transforms) {
+                    if let Some((prev_e, prev_tr)) = prev {
+                        let dist = tr.translation().xy().distance(prev_tr.translation().xy());
+                        ik.bone_data.insert((e, prev_e), Bone::new(dist));
+                        ik.bone_data.insert((prev_e, e), Bone::new(dist));
+                    }
 
-                if chain[chain.len() - 1].1.distance(target) < constraint.epsilon {
-                    break;
+                    //println!(
+                    //"joint {}: {:.3}",
+                    //e,
+                    //tr.rotation().to_euler(EulerRot::XYZ).2
+                    //);
+                    //ik.joint_data
+                    //.insert(e, Joint::new(tr.rotation().to_euler(EulerRot::XYZ).2));
+
+                    prev = Some((e, tr));
                 }
             }
-
-            for i in 0..chain.len() {
-                let (entity, new_pos) = chain[i];
-                let next_pos = match i {
-                    // get the next position in the chain, to compute the angle
-                    // if none, it means were at the effector, so use the target as the next position
-                    i if i == chain.len() - 1 => target,
-                    _ => chain[i + 1].1,
-                };
-
-                let forward_bone = match next_pos - new_pos {
-                    v if v.length() < constraint.epsilon => {
-                        if let Some((_, prev_pos)) = chain.get(i - 1) {
-                            // use the backward bone, bc we got no forward bone
-                            new_pos - prev_pos
-                        } else {
-                            warn!("no prev pos to compute angle for joint {}", entity);
-                            // next - new == 0
-                            // so we took new - prev
-                            // to compute an angle for the joint
-                            // (its probably the effector, since other joints have a distance constraint
-                            //   and cant't overlap with another joint, whereas the effector tries to be ON the target)
-                            // but we didnt find any prev pos
-                            // so either we're not the effector, but that's weird
-                            //   considering we have a non zero distance constraint we shouldnt have overlapping points
-                            // or there is an issue in the code somehow
-                            Vec2::Y
-                        }
-                    }
-                    v => v,
-                };
-                let angle = Vec2::X.angle_to(forward_bone);
-                let rotation = Quat::from_rotation_z(
-                    constraint
-                        .joint_data
-                        .get(&entity)
-                        .cloned()
-                        .unwrap_or_default()
-                        .angle
-                        + angle,
-                );
-
-                let (parent, _, _) = transforms.get(entity).unwrap();
-                if let Some(parent) = parent {
-                    // if parent
-                    // do the GlobalTransform to local conversion
-
-                    let (_, parent_global_tr, _) = transforms.get(**parent).unwrap();
-                    let parent_global_tr = parent_global_tr.clone();
-
-                    let (_, mut global_tr, mut transform) = transforms.get_mut(entity).unwrap();
-
-                    let new_pos = new_pos.extend(global_tr.translation().z);
-                    let new_global_tr = GlobalTransform::from(Transform {
-                        translation: new_pos,
-                        rotation,
-                        scale: global_tr.scale(),
-                    });
-
-                    *transform = new_global_tr.reparented_to(&parent_global_tr);
-                    // here we re-do the job of propagate_transforms
-                    // because we are scheduled to run after it's done (to have the hierarchy movement applied)
-                    // but we still need the transform and global transform to be in synnc
-                    *global_tr = new_global_tr;
-                } else {
-                    let (_, mut global_tr, mut transform) = transforms.get_mut(entity).unwrap();
-                    // if no parent, just set the translation
-                    transform.translation = new_pos.extend(transform.translation.z);
-                    transform.rotation = rotation;
-                    *global_tr = GlobalTransform::from(*transform);
-                }
+            Err(e) => {
+                warn!("unable to find element of IK chain {}", e);
+                continue;
             }
         }
     }
 }
+
+//fn debug_ik(
+//ik_constraints: Query<&IKConstraint, With<DebugIKConstraint>>,
+//entities: Query<&GlobalTransform>,
+//mut gizmos: Gizmos,
+//) {
+//for ik in &ik_constraints {
+//for &e in &ik.chain {
+//if let Ok(tr) = entities.get(e) {
+//gizmos.circle_2d(tr.translation().xy(), 0.01, color::palettes::basic::GREEN);
+//}
+//}
+
+//for i in 0..ik.chain.len() {
+//let e0 = match i {
+//i if i > 0 => Some(&ik.chain[i - 1]),
+//_ => None,
+//};
+//let e1 = ik.chain.get(i);
+//let e2 = ik.chain.get(i + 1);
+
+//match (e0, e1, e2) {
+//(Some(&e0), Some(&e1), Some(&e2)) => {
+//if let (Ok(tr0), Ok(tr1), Ok(tr2)) =
+//(entities.get(e0), entities.get(e1), entities.get(e2))
+//{
+//gizmos.line_2d(
+//tr1.translation().xy(),
+//tr2.translation().xy(),
+//color::palettes::basic::GREEN,
+//);
+
+//let dir = (tr1.translation().xy() - tr0.translation().xy()).normalize();
+
+//let &JointAngleConstraint { ccw, cw } =
+//ik.joint_data.get(&e1).unwrap();
+
+//let distance = ik.bone_data.get(&(e1, e2)).unwrap().length;
+
+//gizmos.arc_2d(
+//Isometry2d {
+//translation: tr1.translation().xy(),
+//rotation: Rot2::radians(-cw)
+//* Rot2::radians(-dir.angle_to(Vec2::Y)),
+//},
+//ccw + cw,
+//distance,
+//color::palettes::basic::PURPLE,
+//);
+//}
+//}
+//_ => (),
+//}
+//}
+//}
+//}
