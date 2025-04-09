@@ -101,11 +101,16 @@ pub struct IKConstraint {
 
     /// bone length for each bone in the chain
     /// it will get computed automatically when the chain is created
-    pub bone_data: HashMap<(Entity, Entity), Bone>,
+    bone_data: HashMap<(Entity, Entity), Bone>,
 
     /// joint base rotations for each joint in the chain
     /// it will get computed automatically when the chain is created
-    pub joint_data: HashMap<Entity, Joint>,
+    joint_data: HashMap<Entity, Joint>,
+
+    /// resting direction of the anchor
+    /// this is set automatically when the chain is created
+    /// according to the direction of the first 2 entities of the chain
+    anchor_dir: Vec2,
 
     // joint data for each joint in the chain
     pub joint_constraints: HashMap<Entity, JointConstraint>,
@@ -133,6 +138,7 @@ impl IKConstraint {
             bone_data: HashMap::new(),
             joint_data: HashMap::new(),
             joint_constraints: HashMap::new(),
+            anchor_dir: Vec2::X,
         }
     }
 
@@ -282,7 +288,7 @@ impl IKConstraint {
             transforms,
         );
 
-        let mut prev_dir: Option<Vec2> = None;
+        let mut prev_dir = self.anchor_dir;
 
         // pull the chain to the anchor
         // while respecting the length and angle constraints
@@ -304,25 +310,20 @@ impl IKConstraint {
                 dist = bone.length;
             }
 
-            // TODO unwrap or anchor default angle
-            // how to represent and get the anchor angle ?
-            // todo
-            let base_dir = prev_dir.unwrap_or(Vec2::X);
-
-            let angle = base_dir.angle_to(dir);
+            let angle = prev_dir.angle_to(dir);
             let rotation = Mat2::from_angle(match self.joint_constraints.get(&e0) {
                 Some(&JointConstraint { ccw, cw }) => angle.clamp(-cw, ccw),
                 None => angle,
             });
 
-            dir = rotation * base_dir;
+            dir = rotation * prev_dir;
 
             let new_e1_pos = e0_pos + dir * dist;
             self.set_position(e1, new_e1_pos, parents, transforms);
 
             self.set_rotation(e0, dir.to_angle(), parents, transforms);
 
-            prev_dir = Some(dir);
+            prev_dir = dir;
         }
     }
 
@@ -364,18 +365,22 @@ fn apply_ik(
 
 fn map_new_ik(
     mut ik_constraints: Query<&mut IKConstraint, Added<IKConstraint>>,
-    entities: Query<&GlobalTransform>,
+    global_transforms: Query<&GlobalTransform>,
 ) {
     for mut ik in &mut ik_constraints {
         match ik
             .chain
             .iter()
-            .map(|&e| Ok(entities.get(e)?))
+            .map(|&e| Ok(global_transforms.get(e)?))
             .into_iter()
             .collect::<Result<Vec<_>, QueryEntityError>>()
         {
             Ok(transforms) => {
                 let mut prev: Option<(Entity, &GlobalTransform)> = None;
+
+                ik.anchor_dir = (transforms[1].translation().xy()
+                    - transforms[0].translation().xy())
+                .normalize();
 
                 for (e, tr) in ik.chain.clone().into_iter().zip(transforms) {
                     if let Some((prev_e, prev_tr)) = prev {
