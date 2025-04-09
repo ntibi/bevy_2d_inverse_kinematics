@@ -250,16 +250,28 @@ impl IKConstraint {
         transforms: &mut Query<(&mut GlobalTransform, &mut Transform)>,
     ) {
         let effector = self.chain.last().unwrap();
+        let anchor = self.chain.first().unwrap();
 
+        let anchor_gtr = transforms.get(*anchor).unwrap().0.clone();
+
+        let anchor_dir = match parents.get(*anchor) {
+            Ok(parent) => transforms
+                .get(**parent)
+                .unwrap()
+                .0
+                .rotation()
+                .mul_vec3(self.anchor_dir.extend(0.))
+                .xy(),
+            Err(_) => self.anchor_dir,
+        };
+
+        // bring the effector to it the target position
         if let Some(target) = self.target {
             self.set_position(*effector, target, parents, transforms);
         }
         if let Some(target_angle) = self.target_angle {
             self.set_rotation(*effector, target_angle, parents, transforms);
         }
-
-        let anchor = self.chain.first().unwrap();
-        let anchor_gtr = transforms.get(*anchor).unwrap().0.clone();
 
         // pull the chain to the effector
         // while respecting the length constraints
@@ -280,6 +292,7 @@ impl IKConstraint {
             }
         }
 
+        // bring the anchor back to its original position
         self.set_position(*anchor, anchor_gtr.translation().xy(), parents, transforms);
         self.set_rotation(
             *anchor,
@@ -290,16 +303,7 @@ impl IKConstraint {
 
         // use the anchor's (potentially relative, if it has a parent) rotation as the original direction
         // to also apply the angle constraint on the anchor rotation
-        let mut prev_dir = match parents.get(*anchor) {
-            Ok(parent) => transforms
-                .get(**parent)
-                .unwrap()
-                .0
-                .rotation()
-                .mul_vec3(self.anchor_dir.extend(0.))
-                .xy(),
-            Err(_) => self.anchor_dir,
-        };
+        let mut prev_dir = anchor_dir;
 
         // pull the chain to the anchor
         // while respecting the length and angle constraints
