@@ -269,9 +269,6 @@ impl IKConstraint {
         if let Some(target) = self.target {
             self.set_position(*effector, target, parents, transforms);
         }
-        if let Some(target_angle) = self.target_angle {
-            self.set_rotation(*effector, target_angle, parents, transforms);
-        }
 
         // pull the chain to the effector
         // while respecting the length constraints
@@ -290,6 +287,29 @@ impl IKConstraint {
                 let new_e0_pos = e1_pos + (e0_pos - e1_pos).normalize() * bone.length;
                 self.set_position(e0, new_e0_pos, parents, transforms);
             }
+        }
+
+        let effector_gtr = transforms.get(*effector).unwrap().0;
+
+        // set the effector to target rotation
+        if let Some(target_angle) = self.target_angle {
+            self.set_rotation(*effector, target_angle, parents, transforms);
+        } else {
+            // or in the direction of the target
+            let dir = if self.target.is_some()
+                && !(self.target.unwrap() - effector_gtr.translation().xy())
+                    .normalize()
+                    .is_nan()
+            {
+                (self.target.unwrap() - effector_gtr.translation().xy()).normalize()
+            } else {
+                // if no target, or effector is already at target pos
+                // use the angle from the prev bone
+                let prev = self.chain[self.chain.len() - 2];
+                let prev_gtr = transforms.get(prev).unwrap().0;
+                (effector_gtr.translation().xy() - prev_gtr.translation().xy()).normalize()
+            };
+            self.set_rotation(*effector, dir.to_angle(), parents, transforms);
         }
 
         // bring the anchor back to its original position
@@ -340,6 +360,17 @@ impl IKConstraint {
 
             prev_dir = dir;
         }
+
+        // restrain the effector's angle
+        // since it doesnt happen in the loop above
+        let effector_gtr = transforms.get(*effector).unwrap().0.clone();
+        let angle = prev_dir.angle_to(effector_gtr.rotation().mul_vec3(Vec3::X).xy());
+        let rotation = Mat2::from_angle(match self.joint_constraints.get(effector) {
+            Some(&JointConstraint { ccw, cw }) => angle.clamp(-cw, ccw),
+            None => angle,
+        });
+        let dir = rotation * prev_dir;
+        self.set_rotation(*effector, dir.to_angle(), parents, transforms);
     }
 
     fn solve(
