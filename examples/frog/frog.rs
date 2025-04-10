@@ -149,7 +149,7 @@ fn setup(
 
     // bottom right leg
     let pos = Vec2::new(16., -17.);
-    let next_step = Vec2::new(8., 2.);
+    let next_step = Vec2::new(11., 2.);
     let (anchor, effector) = spawn_arm(
         pos,
         Vec2::new(1., 0.),
@@ -173,7 +173,7 @@ fn setup(
 
     // bottom left leg
     let pos = Vec2::new(-16., -17.);
-    let next_step = Vec2::new(-8., 2.);
+    let next_step = Vec2::new(-11., 2.);
     let (anchor, effector) = spawn_arm(
         pos,
         Vec2::new(-1., 0.),
@@ -197,7 +197,7 @@ fn setup(
 
     // top right leg
     let pos = Vec2::new(16., 17.);
-    let next_step = Vec2::new(9., 3.);
+    let next_step = Vec2::new(12., 3.);
     let (anchor, effector) = spawn_arm(
         pos,
         Vec2::new(1., 0.),
@@ -221,7 +221,7 @@ fn setup(
 
     // top left leg
     let pos = Vec2::new(-16., 17.);
-    let next_step = Vec2::new(-9., 3.);
+    let next_step = Vec2::new(-12., 3.);
     let (anchor, effector) = spawn_arm(
         pos,
         Vec2::new(-1., 0.),
@@ -318,6 +318,9 @@ fn compute_foot_placement(
             gizmos.circle_2d(default_rest_pos, 3., Color::srgb(1., 0., 0.));
             gizmos.circle_2d(foot_pos, 1., Color::srgb(0., 1., 1.));
             gizmos.circle_2d(base_pos, foot_zone.max_distance, Color::srgb(0., 1., 0.));
+            if let Some(target) = effector.target {
+                gizmos.circle_2d(target, 1., Color::srgb(0., 1., 0.));
+            }
         }
     }
 }
