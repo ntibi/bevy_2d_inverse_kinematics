@@ -1,9 +1,7 @@
 use std::f32::consts::PI;
 
 use bevy::{prelude::*, scene::SceneInstanceReady, window::PrimaryWindow};
-use bevy_2d_inverse_kinematics::{
-    Bone, DebugIKConstraint, IKConstraint, Joint, JointAngleConstraint,
-};
+use bevy_2d_inverse_kinematics::{Bone, IKConstraint, JointConstraint};
 
 pub struct RiggedModelPlugin;
 
@@ -97,17 +95,19 @@ fn map_ik(
             Some(bones) => bones,
         };
 
-    commands.entity(left_hand).insert((
-        DebugIKConstraint,
-        IKConstraint::new(vec![left_arm, left_forearm, left_hand, left_hand_effector])
-            .with_iterations(1)
-            .with_epsilon(0.001)
-            .with_angle_constraints(vec![
-                (left_arm, JointAngleConstraint::new(0., PI / 2.)),
-                (left_forearm, JointAngleConstraint::new(0., PI)),
-                (left_hand, JointAngleConstraint::new(PI / 2., PI / 2.)),
-            ]),
-    ));
+    commands.entity(left_hand).insert((IKConstraint::new(vec![
+        left_arm,
+        left_forearm,
+        left_hand,
+        left_hand_effector,
+    ])
+    .with_iterations(1)
+    .with_epsilon(0.001)
+    .with_joint_constraints(vec![
+        (left_arm, JointConstraint::new(0., PI / 2.)),
+        (left_forearm, JointConstraint::new(0., PI)),
+        (left_hand, JointConstraint::new(PI / 2., PI / 2.)),
+    ]),));
     //commands.entity(right_hand).insert((
     //DebugIKConstraint,
     //IKConstraint::new(vec![
