@@ -283,10 +283,8 @@ impl IKConstraint {
             let [(e1_gtr, _), (e0_gtr, _)] = transforms.get_many([e1, e0]).unwrap();
             let e1_pos = e1_gtr.translation().xy();
             let e0_pos = e0_gtr.translation().xy();
-            if e1_pos.distance(e0_pos) > bone.length {
-                let new_e0_pos = e1_pos + (e0_pos - e1_pos).normalize() * bone.length;
-                self.set_position(e0, new_e0_pos, parents, transforms);
-            }
+            let new_e0_pos = e1_pos + (e0_pos - e1_pos).normalize() * bone.length;
+            self.set_position(e0, new_e0_pos, parents, transforms);
         }
 
         let effector_gtr = transforms.get(*effector).unwrap().0;
