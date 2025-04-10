@@ -265,7 +265,7 @@ impl IKConstraint {
             Err(_) => self.anchor_dir,
         };
 
-        // bring the effector to it the target position
+        // bring the effector to the target position
         if let Some(target) = self.target {
             self.set_position(*effector, target, parents, transforms);
         }
