@@ -135,7 +135,7 @@ fn update_target(
     mut query: Query<&mut IKConstraint>,
     buttons: Res<ButtonInput<MouseButton>>,
 ) {
-    if !buttons.pressed(MouseButton::Left) {
+    if !buttons.pressed(MouseButton::Right) {
         return;
     }
 
