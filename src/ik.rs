@@ -8,12 +8,16 @@ impl Plugin for IKPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
             PostUpdate,
-            (map_new_ik, apply_ik)
+            (map_new_ik, apply_ik, debug_ik)
                 .chain()
                 .after(TransformSystem::TransformPropagate),
         );
     }
 }
+
+/// insert this resource to enable debug gizmos
+#[derive(Resource, Default)]
+pub struct DebugIK;
 
 /// length constraint of a bone (which is a relation between two `Joint`s)
 #[derive(Clone)]
@@ -447,6 +451,23 @@ fn map_new_ik(
             Err(e) => {
                 warn!("unable to find element of IK chain {}", e);
                 continue;
+            }
+        }
+    }
+}
+
+fn debug_ik(
+    ik_constraints: Query<&IKConstraint>,
+    transforms: Query<&GlobalTransform>,
+    mut gizmos: Gizmos,
+    debug: Option<Res<DebugIK>>,
+) {
+    if debug.is_some() {
+        for constraint in ik_constraints.iter() {
+            for &e in &constraint.chain {
+                if let Ok(gtr) = transforms.get(e) {
+                    gizmos.circle_2d(gtr.translation().xy(), 0.1, Color::srgb(0., 1., 0.));
+                }
             }
         }
     }

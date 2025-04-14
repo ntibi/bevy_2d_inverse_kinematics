@@ -1,7 +1,7 @@
 use std::f32::consts::PI;
 
 use bevy::{prelude::*, scene::SceneInstanceReady, window::PrimaryWindow};
-use bevy_2d_inverse_kinematics::{Bone, IKConstraint, JointConstraint};
+use bevy_2d_inverse_kinematics::{Bone, DebugIK, IKConstraint, JointConstraint};
 
 pub struct RiggedModelPlugin;
 
@@ -12,7 +12,8 @@ impl Plugin for RiggedModelPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, (setup, configure_gizmos))
             .add_systems(Update, (input, movement).chain())
-            .add_systems(Update, (update_target).chain());
+            .add_systems(Update, (update_target).chain())
+            .init_resource::<DebugIK>();
     }
 }
 
