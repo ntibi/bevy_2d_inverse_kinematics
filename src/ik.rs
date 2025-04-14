@@ -16,15 +16,12 @@ impl Plugin for IKPlugin {
 }
 
 /// insert this resource to enable debug gizmos
-#[derive(Resource, Reflect)]
+#[derive(Resource, Reflect, Default)]
 pub struct DebugIK {
-    enable: bool,
-}
-
-impl Default for DebugIK {
-    fn default() -> Self {
-        Self { enable: true }
-    }
+    /// size of the circle to draw on joints
+    joints: Option<f32>,
+    /// wether to draw bones
+    bones: bool,
 }
 
 /// length constraint of a bone (which is a relation between two `Joint`s)
@@ -470,18 +467,22 @@ fn debug_ik(
     mut gizmos: Gizmos,
     debug: Option<Res<DebugIK>>,
 ) {
-    if debug.map_or(false, |d| d.enable) {
-        for constraint in ik_constraints.iter() {
-            for i in 0..constraint.chain.len() {
-                let e = constraint.chain[i];
-                let next = constraint.chain.get(i + 1);
+    let Some(debug) = debug else { return };
 
-                let Ok(gtr) = transforms.get(e) else {
-                    continue;
-                };
+    for constraint in ik_constraints.iter() {
+        for i in 0..constraint.chain.len() {
+            let e = constraint.chain[i];
+            let next = constraint.chain.get(i + 1);
 
-                gizmos.circle_2d(gtr.translation().xy(), 1., Color::srgb(0., 1., 0.));
-                if let Some(next) = next {
+            let Ok(gtr) = transforms.get(e) else {
+                continue;
+            };
+
+            if let Some(joint) = debug.joints {
+                gizmos.circle_2d(gtr.translation().xy(), joint, Color::srgb(0., 1., 0.));
+            }
+            if let Some(next) = next {
+                if debug.bones {
                     gizmos.line_2d(
                         gtr.translation().xy(),
                         transforms.get(*next).unwrap().translation().xy(),
