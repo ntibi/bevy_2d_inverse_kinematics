@@ -15,10 +15,10 @@ impl Plugin for FrogPlugin {
                     move_animal,
                     (
                         compute_foot_placement.run_if(|mouse: Res<ButtonInput<MouseButton>>| {
-                            !mouse.pressed(MouseButton::Left)
+                            !mouse.pressed(MouseButton::Right)
                         }),
                         update_target.run_if(|mouse: Res<ButtonInput<MouseButton>>| {
-                            mouse.pressed(MouseButton::Left)
+                            mouse.pressed(MouseButton::Right)
                         }),
                     ),
                 )
@@ -116,7 +116,7 @@ fn setup(
     println!("press WASD to move");
     println!("press Q and E to rotate");
     println!("press SPACE to show foot placement debug");
-    println!("press LEFT MOUSE BUTTON to manually set IK target");
+    println!("press RIGHT MOUSE BUTTON to manually set IK target");
 
     let color = Color::srgb(0.0, 0.8, 0.0);
     let hand_color = Color::srgb(0.0, 0.0, 0.0);
@@ -335,7 +335,7 @@ fn update_target(
     mut query: Query<&mut IKConstraint>,
     buttons: Res<ButtonInput<MouseButton>>,
 ) {
-    if !buttons.pressed(MouseButton::Left) {
+    if !buttons.pressed(MouseButton::Right) {
         return;
     }
 

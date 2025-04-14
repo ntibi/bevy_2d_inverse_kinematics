@@ -23,6 +23,8 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
+    println!("press RIGHT MOUSE BUTTON to manually set IK target");
+
     let start_color = Color::srgb(0., 0., 0.8);
     let end_color = Color::srgb(0., 0., 0.2);
 
@@ -70,7 +72,7 @@ fn update_target(
     mut query: Query<&mut IKConstraint>,
     buttons: Res<ButtonInput<MouseButton>>,
 ) {
-    if !buttons.pressed(MouseButton::Left) {
+    if !buttons.pressed(MouseButton::Right) {
         return;
     }
 
