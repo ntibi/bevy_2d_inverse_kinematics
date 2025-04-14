@@ -245,6 +245,7 @@ impl IKConstraint {
                 }
             }
             Err(_) => {
+                // TODO in arm example, effector is fucked when there is an initial rotation
                 if let Ok((mut gtr, mut tr)) = transforms.get_mut(entity) {
                     tr.rotation = original_rot * Quat::from_rotation_z(rot);
                     *gtr = GlobalTransform::from(*tr);
@@ -321,6 +322,8 @@ impl IKConstraint {
 
         // bring the anchor back to its original position
         self.set_position(*anchor, anchor_gtr.translation().xy(), parents, transforms);
+        // TODO is this correct/useful ?
+        // the anchor is gonna be restrained on the Z axis in the next loop anyway
         self.set_rotation(
             *anchor,
             anchor_gtr.rotation().to_euler(EulerRot::XYZ).2,
