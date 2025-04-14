@@ -42,22 +42,16 @@ impl Bone {
     }
 }
 
-/// default angle of a joint in resting position
-/// relative to the chain's previous bone angle
-#[derive(Clone)]
+/// default relative rotations of a joint in resting position
+/// this will be mutlipled with the Quat of the absolute Z rotation we want to set
+#[derive(Clone, Default)]
 pub struct Joint {
-    angle: f32,
-}
-
-impl Default for Joint {
-    fn default() -> Self {
-        Self::new(0.)
-    }
+    rotation: Quat,
 }
 
 impl Joint {
-    pub fn new(angle: f32) -> Self {
-        Self { angle }
+    pub fn new(rotation: Quat) -> Self {
+        Self { rotation }
     }
 }
 
@@ -230,6 +224,8 @@ impl IKConstraint {
         parents: &Query<&Parent>,
         transforms: &mut Query<(&mut GlobalTransform, &mut Transform)>,
     ) {
+        let original_rot = self.joint_data.get(&entity).unwrap().rotation;
+
         match parents.get(entity) {
             Ok(parent) => {
                 if let Ok([(mut gtr, mut tr), (parent_gtr, _)]) =
@@ -240,13 +236,17 @@ impl IKConstraint {
                         rotation: Quat::from_rotation_z(rot),
                         scale: gtr.scale(),
                     });
+                    // TODO reapply original rotation
                     *tr = new_global_tr.reparented_to(&parent_gtr);
+
+                    tr.rotation = tr.rotation;
+
                     *gtr = new_global_tr;
                 }
             }
             Err(_) => {
                 if let Ok((mut gtr, mut tr)) = transforms.get_mut(entity) {
-                    tr.rotation = Quat::from_rotation_z(rot);
+                    tr.rotation = original_rot * Quat::from_rotation_z(rot);
                     *gtr = GlobalTransform::from(*tr);
                 }
             }
@@ -418,39 +418,35 @@ fn apply_ik(
 
 fn map_new_ik(
     mut ik_constraints: Query<&mut IKConstraint, Added<IKConstraint>>,
-    global_transforms: Query<&GlobalTransform>,
+    transforms: Query<(&Transform, &GlobalTransform)>,
 ) {
     for mut ik in &mut ik_constraints {
         match ik
             .chain
             .iter()
-            .map(|&e| Ok(global_transforms.get(e)?))
+            .map(|&e| Ok(transforms.get(e)?))
             .into_iter()
             .collect::<Result<Vec<_>, QueryEntityError>>()
         {
             Ok(transforms) => {
                 let mut prev: Option<(Entity, &GlobalTransform)> = None;
 
-                ik.anchor_dir = (transforms[1].translation().xy()
-                    - transforms[0].translation().xy())
+                let anchor_gtr = transforms[0].1;
+                let anchor_child_gtr = transforms[1].1;
+                ik.anchor_dir = (anchor_child_gtr.translation().xy()
+                    - anchor_gtr.translation().xy())
                 .normalize();
 
-                for (e, tr) in ik.chain.clone().into_iter().zip(transforms) {
+                for (e, (tr, gtr)) in ik.chain.clone().into_iter().zip(transforms) {
                     if let Some((prev_e, prev_tr)) = prev {
-                        let dist = tr.translation().xy().distance(prev_tr.translation().xy());
+                        let dist = gtr.translation().xy().distance(prev_tr.translation().xy());
                         ik.bone_data.insert((e, prev_e), Bone::new(dist));
                         ik.bone_data.insert((prev_e, e), Bone::new(dist));
                     }
 
-                    //println!(
-                    //"joint {}: {:.3}",
-                    //e,
-                    //tr.rotation().to_euler(EulerRot::XYZ).2
-                    //);
-                    //ik.joint_data
-                    //.insert(e, Joint::new(tr.rotation().to_euler(EulerRot::XYZ).2));
+                    ik.joint_data.insert(e, Joint::new(tr.rotation));
 
-                    prev = Some((e, tr));
+                    prev = Some((e, gtr));
                 }
             }
             Err(e) => {
