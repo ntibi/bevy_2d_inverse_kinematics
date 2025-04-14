@@ -480,7 +480,7 @@ fn debug_ik(
                     continue;
                 };
 
-                gizmos.circle_2d(gtr.translation().xy(), 0.1, Color::srgb(0., 1., 0.));
+                gizmos.circle_2d(gtr.translation().xy(), 1., Color::srgb(0., 1., 0.));
                 if let Some(next) = next {
                     gizmos.line_2d(
                         gtr.translation().xy(),
