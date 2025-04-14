@@ -16,8 +16,16 @@ impl Plugin for IKPlugin {
 }
 
 /// insert this resource to enable debug gizmos
-#[derive(Resource, Default)]
-pub struct DebugIK;
+#[derive(Resource, Reflect)]
+pub struct DebugIK {
+    enable: bool,
+}
+
+impl Default for DebugIK {
+    fn default() -> Self {
+        Self { enable: true }
+    }
+}
 
 /// length constraint of a bone (which is a relation between two `Joint`s)
 #[derive(Clone)]
@@ -462,11 +470,23 @@ fn debug_ik(
     mut gizmos: Gizmos,
     debug: Option<Res<DebugIK>>,
 ) {
-    if debug.is_some() {
+    if debug.map_or(false, |d| d.enable) {
         for constraint in ik_constraints.iter() {
-            for &e in &constraint.chain {
-                if let Ok(gtr) = transforms.get(e) {
-                    gizmos.circle_2d(gtr.translation().xy(), 0.1, Color::srgb(0., 1., 0.));
+            for i in 0..constraint.chain.len() {
+                let e = constraint.chain[i];
+                let next = constraint.chain.get(i + 1);
+
+                let Ok(gtr) = transforms.get(e) else {
+                    continue;
+                };
+
+                gizmos.circle_2d(gtr.translation().xy(), 0.1, Color::srgb(0., 1., 0.));
+                if let Some(next) = next {
+                    gizmos.line_2d(
+                        gtr.translation().xy(),
+                        transforms.get(*next).unwrap().translation().xy(),
+                        Color::srgb(0., 1., 0.),
+                    );
                 }
             }
         }

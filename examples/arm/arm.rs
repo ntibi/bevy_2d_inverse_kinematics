@@ -1,5 +1,6 @@
 use bevy::{prelude::*, window::PrimaryWindow};
-use bevy_2d_inverse_kinematics::{Bone, IKConstraint, JointConstraint};
+use bevy_2d_inverse_kinematics::{Bone, DebugIK, IKConstraint, JointConstraint};
+use bevy_inspector_egui::quick::ResourceInspectorPlugin;
 use std::f32::consts::PI;
 
 pub struct ArmPlugin;
@@ -7,7 +8,9 @@ pub struct ArmPlugin;
 impl Plugin for ArmPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, setup)
-            .add_systems(Update, (update_target).chain());
+            .add_systems(Update, (update_target).chain())
+            .add_plugins(ResourceInspectorPlugin::<DebugIK>::default())
+            .init_resource::<DebugIK>();
     }
 }
 

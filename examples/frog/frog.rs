@@ -1,27 +1,31 @@
 use bevy::{prelude::*, window::PrimaryWindow};
-use bevy_2d_inverse_kinematics::{IKConstraint, JointConstraint};
+use bevy_2d_inverse_kinematics::{DebugIK, IKConstraint, JointConstraint};
+use bevy_inspector_egui::quick::ResourceInspectorPlugin;
 use std::f32::consts::PI;
 
 pub struct FrogPlugin;
 
 impl Plugin for FrogPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, setup).add_systems(
-            Update,
-            (
-                input,
-                move_animal,
+        app.add_systems(Startup, setup)
+            .add_systems(
+                Update,
                 (
-                    compute_foot_placement.run_if(|mouse: Res<ButtonInput<MouseButton>>| {
-                        !mouse.pressed(MouseButton::Left)
-                    }),
-                    update_target.run_if(|mouse: Res<ButtonInput<MouseButton>>| {
-                        mouse.pressed(MouseButton::Left)
-                    }),
-                ),
+                    input,
+                    move_animal,
+                    (
+                        compute_foot_placement.run_if(|mouse: Res<ButtonInput<MouseButton>>| {
+                            !mouse.pressed(MouseButton::Left)
+                        }),
+                        update_target.run_if(|mouse: Res<ButtonInput<MouseButton>>| {
+                            mouse.pressed(MouseButton::Left)
+                        }),
+                    ),
+                )
+                    .chain(),
             )
-                .chain(),
-        );
+            .add_plugins(ResourceInspectorPlugin::<DebugIK>::default())
+            .init_resource::<DebugIK>();
     }
 }
 
