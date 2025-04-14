@@ -358,7 +358,7 @@ impl IKConstraint {
                 None => angle,
             });
 
-            dir = rotation * prev_dir;
+            dir = (rotation * prev_dir).normalize();
 
             let new_e1_pos = e0_pos + dir * dist;
             self.set_position(e1, new_e1_pos, parents, transforms);
