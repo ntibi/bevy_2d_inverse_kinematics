@@ -25,7 +25,7 @@ pub struct DebugIK {
 }
 
 /// length constraint of a bone (which is a relation between two `Joint`s)
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Bone {
     length: f32,
 }
@@ -42,21 +42,21 @@ impl Bone {
     }
 }
 
-/// default relative rotations of a joint in resting position
-/// this will be mutlipled with the Quat of the absolute Z rotation we want to set
-#[derive(Clone, Default)]
+/// default angle to the previous bone of this joint
+/// relative to the rotation of the previous joint
+#[derive(Clone, Default, Debug)]
 pub struct Joint {
-    rotation: Quat,
+    angle: f32,
 }
 
 impl Joint {
-    pub fn new(rotation: Quat) -> Self {
-        Self { rotation }
+    pub fn new(angle: f32) -> Self {
+        Self { angle }
     }
 }
 
 /// angle constraint of a joint
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct JointConstraint {
     /// max counter clockwise angle from initial angle
     /// must be between -PI and PI
@@ -81,7 +81,7 @@ impl JointConstraint {
 /// add this component to an entity to make it the effector of an IK chain
 /// all the entities in the chain must have a `Transform` and `GlobalTransform` component
 /// their transform and global transform will be updated to satisfy the IK constraints
-#[derive(Component)]
+#[derive(Component, Debug)]
 pub struct IKConstraint {
     /// target position for the effector
     pub target: Option<Vec2>,
@@ -106,14 +106,13 @@ pub struct IKConstraint {
     /// it will get computed automatically when the chain is created
     bone_data: HashMap<(Entity, Entity), Bone>,
 
-    /// joint base rotations for each joint in the chain
+    /// bones angles at each joint
     /// it will get computed automatically when the chain is created
     joint_data: HashMap<Entity, Joint>,
 
-    /// resting direction of the anchor
-    /// this is set automatically when the chain is created
-    /// according to the direction of the first 2 entities of the chain
-    anchor_dir: Vec2,
+    /// initial rest rotation of the joint
+    /// it will get computed automatically when the chain is created
+    rest_data: HashMap<Entity, Quat>,
 
     // joint data for each joint in the chain
     pub joint_constraints: HashMap<Entity, JointConstraint>,
@@ -141,7 +140,7 @@ impl IKConstraint {
             bone_data: HashMap::new(),
             joint_data: HashMap::new(),
             joint_constraints: HashMap::new(),
-            anchor_dir: Vec2::X,
+            rest_data: HashMap::new(),
         }
     }
 
@@ -216,6 +215,7 @@ impl IKConstraint {
     }
 
     /// set absolute rotation of an entity
+    /// not really an absolute rotation, since it's relative to its original angle
     /// wether it's an orphan entity or a child of another entity
     fn set_rotation(
         &self,
@@ -224,7 +224,7 @@ impl IKConstraint {
         parents: &Query<&Parent>,
         transforms: &mut Query<(&mut GlobalTransform, &mut Transform)>,
     ) {
-        let original_rot = self.joint_data.get(&entity).unwrap().rotation;
+        let base_rot = self.rest_data.get(&entity).unwrap();
 
         match parents.get(entity) {
             Ok(parent) => {
@@ -233,10 +233,10 @@ impl IKConstraint {
                 {
                     let new_global_tr = GlobalTransform::from(Transform {
                         translation: gtr.translation(),
-                        rotation: Quat::from_rotation_z(rot),
+                        rotation: *base_rot * Quat::from_rotation_z(rot),
                         scale: gtr.scale(),
                     });
-                    // TODO reapply original rotation
+
                     *tr = new_global_tr.reparented_to(&parent_gtr);
 
                     tr.rotation = tr.rotation;
@@ -247,7 +247,7 @@ impl IKConstraint {
             Err(_) => {
                 // TODO in arm example, effector is fucked when there is an initial rotation
                 if let Ok((mut gtr, mut tr)) = transforms.get_mut(entity) {
-                    tr.rotation = original_rot * Quat::from_rotation_z(rot);
+                    tr.rotation = *base_rot * Quat::from_rotation_z(rot);
                     *gtr = GlobalTransform::from(*tr);
                 }
             }
@@ -264,15 +264,21 @@ impl IKConstraint {
 
         let anchor_gtr = transforms.get(*anchor).unwrap().0.clone();
 
+        // absolute dir of the anchor
         let anchor_dir = match parents.get(*anchor) {
-            Ok(parent) => transforms
-                .get(**parent)
-                .unwrap()
-                .0
-                .rotation()
-                .mul_vec3(self.anchor_dir.extend(0.))
-                .xy(),
-            Err(_) => self.anchor_dir,
+            Ok(parent) => {
+                let parent_z_rot = transforms
+                    .get(**parent)
+                    .unwrap()
+                    .0
+                    .rotation()
+                    .to_euler(EulerRot::ZXY)
+                    .0;
+
+                Vec2::from_angle(self.joint_data.get(anchor).unwrap().angle)
+                    .rotate(Vec2::from_angle(parent_z_rot))
+            }
+            Err(_) => Vec2::from_angle(self.joint_data.get(anchor).unwrap().angle),
         };
 
         // bring the effector to the target position
@@ -322,14 +328,6 @@ impl IKConstraint {
 
         // bring the anchor back to its original position
         self.set_position(*anchor, anchor_gtr.translation().xy(), parents, transforms);
-        // TODO is this correct/useful ?
-        // the anchor is gonna be restrained on the Z axis in the next loop anyway
-        self.set_rotation(
-            *anchor,
-            anchor_gtr.rotation().to_euler(EulerRot::XYZ).2,
-            parents,
-            transforms,
-        );
 
         // use the anchor's (potentially relative, if it has a parent) rotation as the original direction
         // to also apply the angle constraint on the anchor rotation
@@ -398,7 +396,7 @@ impl IKConstraint {
                 effector_gtr.translation().xy().distance_squared(target)
                     < self.epsilon * self.epsilon
             }) && self.target_angle.map_or(true, |target| {
-                (target - effector_gtr.rotation().to_euler(EulerRot::XYZ).2).abs()
+                (target - effector_gtr.rotation().to_euler(EulerRot::ZXY).0).abs()
                     < self.angle_epsilon
             }) {
                 break;
@@ -424,6 +422,8 @@ fn map_new_ik(
     transforms: Query<(&Transform, &GlobalTransform)>,
 ) {
     for mut ik in &mut ik_constraints {
+        // cache all the transforms
+        // it might be useless perf wise, but it avoid a lot of unwraps
         match ik
             .chain
             .iter()
@@ -432,24 +432,53 @@ fn map_new_ik(
             .collect::<Result<Vec<_>, QueryEntityError>>()
         {
             Ok(transforms) => {
-                let mut prev: Option<(Entity, &GlobalTransform)> = None;
+                for i in 0..ik.chain.len() {
+                    let e = ik.chain[i];
+                    let (tr, gtr) = transforms[i];
 
-                let anchor_gtr = transforms[0].1;
-                let anchor_child_gtr = transforms[1].1;
-                ik.anchor_dir = (anchor_child_gtr.translation().xy()
-                    - anchor_gtr.translation().xy())
-                .normalize();
+                    ik.rest_data.insert(e, gtr.rotation());
 
-                for (e, (tr, gtr)) in ik.chain.clone().into_iter().zip(transforms) {
-                    if let Some((prev_e, prev_tr)) = prev {
-                        let dist = gtr.translation().xy().distance(prev_tr.translation().xy());
+                    if let Some(prev_i) = i.checked_sub(1) {
+                        let prev_e = ik.chain[prev_i];
+                        let (_, prev_gtr) = transforms[prev_i];
+
+                        let dist = gtr.translation().xy().distance(prev_gtr.translation().xy());
                         ik.bone_data.insert((e, prev_e), Bone::new(dist));
                         ik.bone_data.insert((prev_e, e), Bone::new(dist));
                     }
 
-                    ik.joint_data.insert(e, Joint::new(tr.rotation));
+                    match i {
+                        // we are at the anchor
+                        // take the direction to the next joint as the angle
+                        i if i == 0 => {
+                            let anchor_gtr = transforms[0].1;
+                            let anchor_child_gtr = transforms[1].1;
+                            let angle = Vec2::X.angle_to(
+                                (anchor_child_gtr.translation().xy()
+                                    - anchor_gtr.translation().xy()),
+                            );
+                            ik.joint_data.insert(e, Joint::new(angle));
+                        }
+                        // we are at the effector
+                        // assume the resting position to be the angle 0 between the effectorand its previous bone
+                        i if i == ik.chain.len() - 1 => {
+                            let prev = ik.joint_data.get(&ik.chain[i - 1]).unwrap().clone();
+                            ik.joint_data.insert(e, prev);
+                        }
+                        // we are at a random joint
+                        // so we have a prev and a next joint
+                        _ => {
+                            let (_, prev_gtr) = transforms[i - 1];
+                            let (_, next_gtr) = transforms[i + 1];
 
-                    prev = Some((e, gtr));
+                            let prev_dir =
+                                (gtr.translation().xy() - prev_gtr.translation().xy()).normalize();
+                            let dir =
+                                (next_gtr.translation().xy() - gtr.translation().xy()).normalize();
+
+                            ik.joint_data.insert(e, Joint::new(prev_dir.angle_to(dir)));
+                        }
+                    }
                 }
             }
             Err(e) => {
