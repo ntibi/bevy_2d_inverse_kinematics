@@ -241,7 +241,7 @@ impl IKConstraint {
                 {
                     let new_global_tr = GlobalTransform::from(Transform {
                         translation: gtr.translation(),
-                        rotation: *base_rot * Quat::from_rotation_z(diff_from_rest),
+                        rotation: Quat::from_rotation_z(diff_from_rest) * *base_rot,
                         scale: gtr.scale(),
                     });
 
