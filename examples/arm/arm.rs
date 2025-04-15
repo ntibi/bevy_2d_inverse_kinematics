@@ -1,5 +1,5 @@
 use bevy::{prelude::*, window::PrimaryWindow};
-use bevy_2d_inverse_kinematics::{Bone, DebugIK, IKConstraint, JointConstraint};
+use bevy_2d_inverse_kinematics::{DebugIK, IKConstraint, JointConstraint};
 use bevy_inspector_egui::quick::ResourceInspectorPlugin;
 use std::f32::consts::PI;
 
