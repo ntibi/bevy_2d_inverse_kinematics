@@ -26,6 +26,11 @@ fn configure_gizmos(mut conf: ResMut<GizmoConfigStore>) {
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+    println!("press WASD to move");
+    println!("press Q and E to rotate");
+    println!("press RIGHT MOUSE BUTTON to manually set IK target");
+    println!("press ARROW KEYS to translate the camera");
+
     commands
         .spawn((
             Visibility::Visible,
