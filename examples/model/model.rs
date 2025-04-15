@@ -1,7 +1,7 @@
 use std::f32::consts::PI;
 
 use bevy::{prelude::*, scene::SceneInstanceReady, window::PrimaryWindow};
-use bevy_2d_inverse_kinematics::{Bone, DebugIK, IKConstraint, JointConstraint};
+use bevy_2d_inverse_kinematics::{DebugIK, IKConstraint, JointConstraint};
 use bevy_inspector_egui::quick::ResourceInspectorPlugin;
 
 pub struct RiggedModelPlugin;
@@ -98,38 +98,34 @@ fn map_ik(
             Some(bones) => bones,
         };
 
-    println!("left arm: {}", left_arm);
-    println!("left forearm: {}", left_forearm);
-    println!("left hand: {}", left_hand);
-    println!("left hand effector: {}", left_hand_effector);
+    commands
+        .entity(left_hand_effector)
+        .insert((
+            IKConstraint::new(vec![left_arm, left_forearm, left_hand, left_hand_effector])
+                .with_iterations(1)
+                .with_epsilon(0.001)
+                .with_joint_constraints(vec![
+                    (left_arm, JointConstraint::new(0., PI / 2.)),
+                    (left_forearm, JointConstraint::new(0., PI)),
+                    (left_hand, JointConstraint::new(PI / 4., PI / 4.)),
+                ]),
+        ));
 
-    commands.entity(left_hand).insert((IKConstraint::new(vec![
-        left_arm,
-        left_forearm,
-        left_hand,
-        left_hand_effector,
-    ])
-    .with_iterations(1)
-    .with_epsilon(0.001)
-    .with_joint_constraints(vec![
-        (left_arm, JointConstraint::new(0., PI / 2.)),
-        (left_forearm, JointConstraint::new(0., PI)),
-        (left_hand, JointConstraint::new(PI / 4., PI / 4.)),
-    ]),));
-
-    //commands.entity(right_hand).insert((IKConstraint::new(vec![
-    //right_arm,
-    //right_forearm,
-    //right_hand,
-    //right_hand_effector,
-    //])
-    //.with_iterations(1)
-    //.with_epsilon(0.001)
-    //.with_joint_constraints(vec![
-    //(right_arm, JointConstraint::new(PI / 2., 0.)),
-    //(right_forearm, JointConstraint::new(PI, 0.)),
-    //(right_hand, JointConstraint::new(PI / 4., PI / 4.)),
-    //]),));
+    commands
+        .entity(right_hand_effector)
+        .insert((IKConstraint::new(vec![
+            right_arm,
+            right_forearm,
+            right_hand,
+            right_hand_effector,
+        ])
+        .with_iterations(1)
+        .with_epsilon(0.001)
+        .with_joint_constraints(vec![
+            (right_arm, JointConstraint::new(PI / 2., 0.)),
+            (right_forearm, JointConstraint::new(PI, 0.)),
+            (right_hand, JointConstraint::new(PI / 4., PI / 4.)),
+        ]),));
 }
 
 fn update_target(
