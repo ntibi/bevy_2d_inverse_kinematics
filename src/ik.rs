@@ -440,7 +440,7 @@ fn map_new_ik(
             Ok(transforms) => {
                 for i in 0..ik.chain.len() {
                     let e = ik.chain[i];
-                    let (tr, gtr) = transforms[i];
+                    let (_, gtr) = transforms[i];
 
                     ik.rest_data.insert(e, gtr.rotation());
 
