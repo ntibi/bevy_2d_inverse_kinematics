@@ -15,19 +15,28 @@ impl Plugin for IKPlugin {
         .register_type::<DebugIK>()
         .register_type::<IKConstraint>()
         .register_type::<Bone>()
-        .register_type::<Joint>()
+        .register_type::<JointRest>()
         .register_type::<JointConstraint>()
         .register_type::<IKConstraint>();
     }
 }
 
 /// insert this resource to enable debug gizmos
-#[derive(Resource, Reflect, Default)]
+#[derive(Resource, Reflect)]
 pub struct DebugIK {
     /// size of the circle to draw on joints
     joints: Option<f32>,
     /// wether to draw bones
     bones: bool,
+}
+
+impl Default for DebugIK {
+    fn default() -> Self {
+        Self {
+            joints: Some(0.1),
+            bones: true,
+        }
+    }
 }
 
 /// length constraint of a bone (which is a relation between two `Joint`s)
@@ -48,14 +57,13 @@ impl Bone {
     }
 }
 
-/// default angle to the previous bone of this joint
-/// relative to the rotation of the previous joint
+/// absolute angle of the bone in the resting position
 #[derive(Clone, Default, Debug, Reflect)]
-pub struct Joint {
+pub struct JointRest {
     angle: f32,
 }
 
-impl Joint {
+impl JointRest {
     pub fn new(angle: f32) -> Self {
         Self { angle }
     }
@@ -86,14 +94,11 @@ impl JointConstraint {
 
 /// add this component to an entity to make it the effector of an IK chain
 /// all the entities in the chain must have a `Transform` and `GlobalTransform` component
-/// their transform and global transform will be updated to satisfy the IK constraints
+/// their transforms and global transforms will be updated to satisfy the IK constraints without breaking the parent-child hierarchy
 #[derive(Component, Debug, Reflect)]
 pub struct IKConstraint {
     /// target position for the effector
     pub target: Option<Vec2>,
-
-    /// target rotation for the effector
-    pub target_angle: Option<f32>,
 
     /// path from the anchor of the constraint to the entity holding this component
     /// the first entity in the chain is the anchor
@@ -104,21 +109,21 @@ pub struct IKConstraint {
     ///
     /// chain example: [shoulder, elbow, wrist, hand]
     /// the body wont be affected by the IK
-    /// the hand will try to be respect `target` and `target_angle`
+    /// the hand will try to be respect `target`
     /// the rest of the joints will accomodate
     pub chain: Vec<Entity>,
 
     /// bone length for each bone in the chain
     /// it will get computed automatically when the chain is created
-    bone_data: HashMap<(Entity, Entity), Bone>,
+    pub bone_data: HashMap<(Entity, Entity), Bone>,
 
     /// absolute bones angles at each joint ar rest
     /// it will get computed automatically when the chain is created
-    joint_data: HashMap<Entity, Joint>,
+    pub joint_data: HashMap<Entity, JointRest>,
 
     /// initial rest rotation of the joint
     /// it will get computed automatically when the chain is created
-    rest_data: HashMap<Entity, Quat>,
+    pub rest_data: HashMap<Entity, Quat>,
 
     // joint data for each joint in the chain
     pub joint_constraints: HashMap<Entity, JointConstraint>,
@@ -129,20 +134,15 @@ pub struct IKConstraint {
     /// epsilon to consider the constraint solved
     /// must be smaller than the smaller distance constraint
     pub epsilon: f32,
-    /// epsilon to consider the constraint solved
-    /// must be smaller than the smaller angle constraint (in rad)
-    pub angle_epsilon: f32,
 }
 
 impl IKConstraint {
     pub fn new(chain: Vec<Entity>) -> Self {
         Self {
             target: None,
-            target_angle: None,
             chain,
             iterations: 10,
             epsilon: 1.0,
-            angle_epsilon: 1.0,
             bone_data: HashMap::new(),
             joint_data: HashMap::new(),
             joint_constraints: HashMap::new(),
@@ -150,16 +150,21 @@ impl IKConstraint {
         }
     }
 
+    /// adds a list of joints angles constraint
     pub fn with_joint_constraints(mut self, constraints: Vec<(Entity, JointConstraint)>) -> Self {
         self.joint_constraints.extend(constraints);
         self
     }
 
+    /// set the number of iterations to solve the IK constraint
+    /// default is 10
     pub fn with_iterations(mut self, iterations: usize) -> Self {
         self.iterations = iterations;
         self
     }
 
+    /// adds a target position for the effector
+    /// in world space
     pub fn with_target(mut self, target: Vec2) -> Self {
         self.target = Some(target);
         self
@@ -170,22 +175,14 @@ impl IKConstraint {
         self
     }
 
-    pub fn with_angle_epsilon(mut self, angle_epsilon: f32) -> Self {
-        self.angle_epsilon = angle_epsilon;
-        self
-    }
-
+    /// set the target position for the effector
+    /// in world space
     pub fn target(&mut self, target: Vec2) {
         self.target = Some(target);
     }
 
-    pub fn target_angle(&mut self, rot: f32) {
-        self.target_angle = Some(rot);
-    }
-
     pub fn untarget(&mut self) {
         self.target = None;
-        self.target_angle = None;
     }
 
     /// set absolute posiiton of an entity
@@ -221,7 +218,6 @@ impl IKConstraint {
     }
 
     /// set absolute rotation of an entity
-    /// not really an absolute rotation, since it's relative to its original angle
     /// wether it's an orphan entity or a child of another entity
     fn set_rotation(
         &self,
@@ -311,26 +307,21 @@ impl IKConstraint {
 
         let effector_gtr = transforms.get(*effector).unwrap().0;
 
-        // set the effector to target rotation
-        if let Some(target_angle) = self.target_angle {
-            self.set_rotation(*effector, target_angle, parents, transforms);
+        // or in the direction of the target
+        let dir = if self.target.is_some()
+            && !(self.target.unwrap() - effector_gtr.translation().xy())
+                .normalize()
+                .is_nan()
+        {
+            (self.target.unwrap() - effector_gtr.translation().xy()).normalize()
         } else {
-            // or in the direction of the target
-            let dir = if self.target.is_some()
-                && !(self.target.unwrap() - effector_gtr.translation().xy())
-                    .normalize()
-                    .is_nan()
-            {
-                (self.target.unwrap() - effector_gtr.translation().xy()).normalize()
-            } else {
-                // if no target, or effector is already at target pos
-                // use the angle from the prev bone
-                let prev = self.chain[self.chain.len() - 2];
-                let prev_gtr = transforms.get(prev).unwrap().0;
-                (effector_gtr.translation().xy() - prev_gtr.translation().xy()).normalize()
-            };
-            self.set_rotation(*effector, dir.to_angle(), parents, transforms);
-        }
+            // if no target, or effector is already at target pos
+            // use the angle from the prev bone
+            let prev = self.chain[self.chain.len() - 2];
+            let prev_gtr = transforms.get(prev).unwrap().0;
+            (effector_gtr.translation().xy() - prev_gtr.translation().xy()).normalize()
+        };
+        self.set_rotation(*effector, dir.to_angle(), parents, transforms);
 
         // bring the anchor back to its original position
         self.set_position(*anchor, anchor_gtr.translation().xy(), parents, transforms);
@@ -401,9 +392,6 @@ impl IKConstraint {
             if self.target.map_or(true, |target| {
                 effector_gtr.translation().xy().distance_squared(target)
                     < self.epsilon * self.epsilon
-            }) && self.target_angle.map_or(true, |target| {
-                (target - effector_gtr.rotation().to_euler(EulerRot::ZXY).0).abs()
-                    < self.angle_epsilon
             }) {
                 break;
             }
@@ -413,7 +401,7 @@ impl IKConstraint {
     }
 }
 
-fn apply_ik(
+pub fn apply_ik(
     ik_constraints: Query<&IKConstraint>,
     parents: Query<&Parent>,
     mut transforms: Query<(&mut GlobalTransform, &mut Transform)>,
@@ -423,7 +411,7 @@ fn apply_ik(
     }
 }
 
-fn map_new_ik(
+pub fn map_new_ik(
     mut ik_constraints: Query<&mut IKConstraint, Added<IKConstraint>>,
     transforms: Query<(&Transform, &GlobalTransform)>,
 ) {
@@ -461,14 +449,14 @@ fn map_new_ik(
                             let anchor_child_gtr = transforms[1].1;
                             let dir =
                                 anchor_child_gtr.translation().xy() - anchor_gtr.translation().xy();
-                            ik.joint_data.insert(e, Joint::new(dir.to_angle()));
+                            ik.joint_data.insert(e, JointRest::new(dir.to_angle()));
                         }
                         _ => {
                             let (_, prev_gtr) = transforms[i - 1];
 
                             let dir = gtr.translation().xy() - prev_gtr.translation().xy();
 
-                            ik.joint_data.insert(e, Joint::new(dir.to_angle()));
+                            ik.joint_data.insert(e, JointRest::new(dir.to_angle()));
                         }
                     }
                 }
