@@ -32,7 +32,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     println!("press ARROW KEYS to translate the camera");
 
     commands.spawn((
-        Transform::default().with_rotation(Quat::from_rotation_x(PI / 2.)),
+        Transform::default().with_rotation(Quat::from_rotation_x(PI / 8.)),
         DirectionalLight::default(),
     ));
 
