@@ -98,6 +98,11 @@ fn map_ik(
             Some(bones) => bones,
         };
 
+    println!("left arm: {}", left_arm);
+    println!("left forearm: {}", left_forearm);
+    println!("left hand: {}", left_hand);
+    println!("left hand effector: {}", left_hand_effector);
+
     commands.entity(left_hand).insert((IKConstraint::new(vec![
         left_arm,
         left_forearm,

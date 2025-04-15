@@ -225,6 +225,9 @@ impl IKConstraint {
         transforms: &mut Query<(&mut GlobalTransform, &mut Transform)>,
     ) {
         let base_rot = self.rest_data.get(&entity).unwrap();
+        let base_angle = self.joint_data.get(&entity).unwrap().angle;
+        println!("\t\tsetting rot of {} to {}", entity, rot);
+        println!("\t\t\tbase angle is {}", base_angle);
 
         match parents.get(entity) {
             Ok(parent) => {
@@ -233,13 +236,12 @@ impl IKConstraint {
                 {
                     let new_global_tr = GlobalTransform::from(Transform {
                         translation: gtr.translation(),
-                        rotation: *base_rot * Quat::from_rotation_z(rot),
+                        rotation: *base_rot,
+                        //rotation: *base_rot * Quat::from_rotation_z(rot),
                         scale: gtr.scale(),
                     });
 
                     *tr = new_global_tr.reparented_to(&parent_gtr);
-
-                    tr.rotation = tr.rotation;
 
                     *gtr = new_global_tr;
                 }
@@ -305,6 +307,7 @@ impl IKConstraint {
 
         let effector_gtr = transforms.get(*effector).unwrap().0;
 
+        println!("\teffector");
         // set the effector to target rotation
         if let Some(target_angle) = self.target_angle {
             self.set_rotation(*effector, target_angle, parents, transforms);
@@ -333,6 +336,7 @@ impl IKConstraint {
         // to also apply the angle constraint on the anchor rotation
         let mut prev_dir = anchor_dir;
 
+        println!("\tbackward");
         // pull the chain to the anchor
         // while respecting the length and angle constraints
         // iter from anchor to effector
@@ -378,6 +382,7 @@ impl IKConstraint {
             None => angle,
         });
         let dir = rotation * prev_dir;
+        println!("\teffector");
         self.set_rotation(*effector, dir.to_angle(), parents, transforms);
     }
 
@@ -386,6 +391,7 @@ impl IKConstraint {
         parents: &Query<&Parent>,
         transforms: &mut Query<(&mut GlobalTransform, &mut Transform)>,
     ) {
+        println!("solving IK ");
         let effector = self.chain.last().unwrap();
 
         for _ in 0..self.iterations {
