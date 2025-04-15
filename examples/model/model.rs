@@ -31,6 +31,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     println!("press RIGHT MOUSE BUTTON to manually set IK target");
     println!("press ARROW KEYS to translate the camera");
 
+    commands.spawn((
+        Transform::default().with_rotation(Quat::from_rotation_x(PI / 2.)),
+        DirectionalLight::default(),
+    ));
+
     commands
         .spawn((
             Visibility::Visible,
