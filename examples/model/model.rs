@@ -42,9 +42,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             Movable,
             Velocity::default(),
             AngularVelocity::default(),
-            // TODO test with and without this initial transform
-            //Transform::from_rotation(Quat::from_rotation_z(PI / 2.)),
-            SceneRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset("char.gltf"))),
+            SceneRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset("character.gltf"))),
         ))
         .observe(map_ik);
 }
