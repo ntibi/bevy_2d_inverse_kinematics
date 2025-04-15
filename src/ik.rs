@@ -247,7 +247,6 @@ impl IKConstraint {
                 }
             }
             Err(_) => {
-                // TODO in arm example, effector is fucked when there is an initial rotation
                 if let Ok((mut gtr, mut tr)) = transforms.get_mut(entity) {
                     tr.rotation = *base_rot * Quat::from_rotation_z(diff_from_rest);
                     *gtr = GlobalTransform::from(*tr);
