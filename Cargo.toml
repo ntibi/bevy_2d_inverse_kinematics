@@ -1,6 +1,6 @@
 [package]
 name = "bevy_2d_inverse_kinematics"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2021"
 description = "A 2D inverse kinematics plugin for Bevy"
 repository = "https://github.com/ntibi/bevy_2d_inverse_kinematics"
