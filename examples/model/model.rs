@@ -109,24 +109,22 @@ fn map_ik(
     .with_joint_constraints(vec![
         (left_arm, JointConstraint::new(0., PI / 2.)),
         (left_forearm, JointConstraint::new(0., PI)),
-        (left_hand, JointConstraint::new(PI / 2., PI / 2.)),
+        (left_hand, JointConstraint::new(PI / 4., PI / 4.)),
     ]),));
-    //commands.entity(right_hand).insert((
-    //DebugIKConstraint,
-    //IKConstraint::new(vec![
+
+    //commands.entity(right_hand).insert((IKConstraint::new(vec![
     //right_arm,
     //right_forearm,
     //right_hand,
     //right_hand_effector,
     //])
-    //.with_iterations(100)
+    //.with_iterations(1)
     //.with_epsilon(0.001)
-    //.with_angle_constraints(vec![
-    //(right_arm, JointAngleConstraint::new(PI / 2., 0.)),
-    //(right_forearm, JointAngleConstraint::new(PI, 0.)),
-    //(right_hand, JointAngleConstraint::new(PI / 2., PI / 2.)),
-    //]),
-    //));
+    //.with_joint_constraints(vec![
+    //(right_arm, JointConstraint::new(PI / 2., 0.)),
+    //(right_forearm, JointConstraint::new(PI, 0.)),
+    //(right_hand, JointConstraint::new(PI / 4., PI / 4.)),
+    //]),));
 }
 
 fn update_target(
