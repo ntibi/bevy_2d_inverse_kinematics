@@ -13,7 +13,6 @@ impl Plugin for IKPlugin {
                 .after(TransformSystem::TransformPropagate),
         )
         .register_type::<DebugIK>()
-        .register_type::<IKConstraint>()
         .register_type::<Bone>()
         .register_type::<JointRest>()
         .register_type::<JointConstraint>()
