@@ -24,9 +24,9 @@ impl Plugin for IKPlugin {
 #[derive(Resource, Reflect)]
 pub struct DebugIK {
     /// size of the circle to draw on joints
-    joints: Option<f32>,
+    pub joints: Option<f32>,
     /// wether to draw bones
-    bones: bool,
+    pub bones: bool,
 }
 
 impl Default for DebugIK {
