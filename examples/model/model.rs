@@ -1,7 +1,7 @@
 use std::f32::consts::PI;
 
 use bevy::{prelude::*, scene::SceneInstanceReady, window::PrimaryWindow};
-use bevy_2d_inverse_kinematics::{DebugIK, IKConstraint, JointConstraint};
+use bevy_2d_inverse_kinematics::{DebugIK, IKConstraint, IKTarget, JointConstraint};
 use bevy_inspector_egui::quick::ResourceInspectorPlugin;
 
 pub struct RiggedModelPlugin;
@@ -154,7 +154,7 @@ fn update_target(
         .and_then(|cursor| camera.viewport_to_world_2d(camera_transform, cursor).ok())
     {
         for mut ik in query.iter_mut() {
-            ik.target(pos);
+            ik.set_target(IKTarget::Pos(pos));
         }
     }
 }

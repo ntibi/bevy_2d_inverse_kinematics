@@ -1,5 +1,5 @@
 use bevy::{prelude::*, window::PrimaryWindow};
-use bevy_2d_inverse_kinematics::{DebugIK, IKConstraint, JointConstraint};
+use bevy_2d_inverse_kinematics::{DebugIK, IKConstraint, IKTarget, JointConstraint};
 use bevy_inspector_egui::quick::ResourceInspectorPlugin;
 use std::f32::consts::PI;
 
@@ -83,7 +83,7 @@ fn spawn_arm(
                     .map(|e| (*e, JointConstraint::new(3. * PI / 4., 3. * PI / 4.)))
                     .collect::<Vec<_>>(),
             )
-            .with_target(get_limb_world_pos(len - 1).xy())
+            .with_target(IKTarget::Pos(get_limb_world_pos(len - 1).xy()))
             .with_epsilon(0.01),
     );
 
@@ -315,15 +315,18 @@ fn compute_foot_placement(
                 .xy();
 
         if foot_pos.distance(base_pos) > foot_zone.max_distance {
-            effector.target(default_rest_pos);
+            effector.set_target(IKTarget::Pos(default_rest_pos));
         }
 
         if keyboard_input.pressed(KeyCode::Space) {
             gizmos.circle_2d(default_rest_pos, 3., Color::srgb(1., 0., 0.));
             gizmos.circle_2d(foot_pos, 1., Color::srgb(0., 1., 1.));
             gizmos.circle_2d(base_pos, foot_zone.max_distance, Color::srgb(0., 1., 0.));
-            if let Some(target) = effector.target {
-                gizmos.circle_2d(target, 1., Color::srgb(0., 1., 0.));
+            match effector.target {
+                IKTarget::Pos(target) => {
+                    gizmos.circle_2d(target, 1., Color::srgb(0., 1., 0.));
+                }
+                _ => {}
             }
         }
     }
@@ -347,7 +350,7 @@ fn update_target(
         .and_then(|cursor| camera.viewport_to_world_2d(camera_transform, cursor).ok())
     {
         for mut ik in query.iter_mut() {
-            ik.target(pos);
+            ik.set_target(IKTarget::Pos(pos));
         }
     }
 }

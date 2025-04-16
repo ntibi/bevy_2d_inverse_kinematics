@@ -8,7 +8,7 @@ impl Plugin for IKPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
             PostUpdate,
-            (map_new_ik, apply_ik, debug_ik)
+            (map_new_ik, solve_ik, debug_ik)
                 .chain()
                 .after(TransformSystem::TransformPropagate),
         )
@@ -91,13 +91,20 @@ impl JointConstraint {
     }
 }
 
+#[derive(Clone, Debug, Reflect)]
+pub enum IKTarget {
+    None,
+    Pos(Vec2),
+    Entity(Entity),
+}
+
 /// add this component to an entity to make it the effector of an IK chain
 /// all the entities in the chain must have a `Transform` and `GlobalTransform` component
 /// their transforms and global transforms will be updated to satisfy the IK constraints without breaking the parent-child hierarchy
 #[derive(Component, Debug, Reflect)]
 pub struct IKConstraint {
-    /// target position for the effector
-    pub target: Option<Vec2>,
+    /// target of the IK constraint
+    pub target: IKTarget,
 
     /// path from the anchor of the constraint to the entity holding this component
     /// the first entity in the chain is the anchor
@@ -138,7 +145,7 @@ pub struct IKConstraint {
 impl IKConstraint {
     pub fn new(chain: Vec<Entity>) -> Self {
         Self {
-            target: None,
+            target: IKTarget::None,
             chain,
             iterations: 10,
             epsilon: 1.0,
@@ -162,26 +169,22 @@ impl IKConstraint {
         self
     }
 
-    /// adds a target position for the effector
-    /// in world space
-    pub fn with_target(mut self, target: Vec2) -> Self {
-        self.target = Some(target);
-        self
-    }
-
     pub fn with_epsilon(mut self, epsilon: f32) -> Self {
         self.epsilon = epsilon;
         self
     }
 
-    /// set the target position for the effector
-    /// in world space
-    pub fn target(&mut self, target: Vec2) {
-        self.target = Some(target);
+    pub fn with_target(mut self, target: IKTarget) -> Self {
+        self.target = target;
+        self
     }
 
-    pub fn untarget(&mut self) {
-        self.target = None;
+    pub fn set_target(&mut self, target: IKTarget) {
+        self.target = target;
+    }
+
+    pub fn remove_target(&mut self) {
+        self.target = IKTarget::None;
     }
 
     /// set absolute posiiton of an entity
@@ -256,6 +259,7 @@ impl IKConstraint {
 
     fn solve_iteration(
         &self,
+        target: Vec2,
         parents: &Query<&Parent>,
         transforms: &mut Query<(&mut GlobalTransform, &mut Transform)>,
     ) {
@@ -282,9 +286,7 @@ impl IKConstraint {
         };
 
         // bring the effector to the target position
-        if let Some(target) = self.target {
-            self.set_position(*effector, target, parents, transforms);
-        }
+        self.set_position(*effector, target, parents, transforms);
 
         // pull the chain to the effector
         // while respecting the length constraints
@@ -306,14 +308,13 @@ impl IKConstraint {
         let effector_gtr = transforms.get(*effector).unwrap().0;
 
         // or in the direction of the target
-        let dir = if self.target.is_some()
-            && !(self.target.unwrap() - effector_gtr.translation().xy())
-                .normalize()
-                .is_nan()
+        let dir = if !(target - effector_gtr.translation().xy())
+            .normalize()
+            .is_nan()
         {
-            (self.target.unwrap() - effector_gtr.translation().xy()).normalize()
+            (target - effector_gtr.translation().xy()).normalize()
         } else {
-            // if no target, or effector is already at target pos
+            // if effector is already at target pos
             // use the angle from the prev bone
             let prev = self.chain[self.chain.len() - 2];
             let prev_gtr = transforms.get(prev).unwrap().0;
@@ -378,6 +379,7 @@ impl IKConstraint {
 
     fn solve(
         &self,
+        target: Vec2,
         parents: &Query<&Parent>,
         transforms: &mut Query<(&mut GlobalTransform, &mut Transform)>,
     ) {
@@ -387,25 +389,37 @@ impl IKConstraint {
             // early break if both effector constraints are within epsilons
             // or if there are no constrains
             let effector_gtr = transforms.get(*effector).unwrap().0;
-            if self.target.map_or(true, |target| {
-                effector_gtr.translation().xy().distance_squared(target)
-                    < self.epsilon * self.epsilon
-            }) {
+            if effector_gtr.translation().xy().distance_squared(target)
+                < self.epsilon * self.epsilon
+            {
                 break;
             }
 
-            self.solve_iteration(parents, transforms);
+            self.solve_iteration(target, parents, transforms);
         }
     }
 }
 
-pub fn apply_ik(
+pub fn solve_ik(
     ik_constraints: Query<&IKConstraint>,
     parents: Query<&Parent>,
     mut transforms: Query<(&mut GlobalTransform, &mut Transform)>,
 ) {
     for constraint in ik_constraints.iter() {
-        constraint.solve(&parents, &mut transforms);
+        let target = match constraint.target {
+            IKTarget::None => continue,
+            IKTarget::Pos(target) => target,
+            IKTarget::Entity(target) => {
+                if let Ok((gtr, _)) = transforms.get(target) {
+                    gtr.translation().xy()
+                } else {
+                    warn!("unable to find target entity {}", target);
+                    continue;
+                }
+            }
+        };
+
+        constraint.solve(target, &parents, &mut transforms);
     }
 }
 
