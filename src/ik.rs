@@ -1,5 +1,5 @@
 use bevy::{ecs::query::QueryEntityError, prelude::*, utils::HashMap};
-use std::f32::consts::PI;
+use std::f32::consts::{FRAC_PI_2, PI};
 
 /// add this plugin to your app to have IK constraints solved every frame
 pub struct IKPlugin;
@@ -508,6 +508,40 @@ fn debug_ik(
                         transforms.get(*next).unwrap().translation().xy(),
                         Color::srgb(0., 1., 0.),
                     );
+                }
+            }
+
+            if let Some(len) = debug.constraints {
+                if let Some(&JointConstraint { cw, ccw }) = constraint.joint_constraints.get(&e) {
+                    if let Some(rest_rot) = constraint.rest_data.get(&e) {
+                        let rest_angle = constraint.joint_data.get(&e).unwrap().angle;
+                        let dir = Vec2::from_angle(rest_angle) * len;
+                        let min_dir = (Vec2::from_angle(-cw)).rotate(dir);
+                        let max_dir = (Vec2::from_angle(ccw)).rotate(dir);
+
+                        let rotation = Mat2::from_angle(
+                            (gtr.rotation() * *rest_rot).to_euler(EulerRot::ZXY).0,
+                        );
+
+                        gizmos.ray_2d(gtr.translation().xy(), dir, Color::srgb(1., 0., 0.));
+                        gizmos.arc_2d(
+                            Isometry2d {
+                                translation: gtr.translation().xy(),
+                                rotation: Rot2::radians(-cw)
+                                    * Rot2::radians(rest_angle - FRAC_PI_2),
+                                ..default()
+                            },
+                            cw + ccw,
+                            len,
+                            Color::srgb(1., 0.5, 0.),
+                        );
+                        //gizmos.short_arc_2d_between(
+                        //gtr.translation().xy(),
+                        //gtr.translation().xy() + min_dir,
+                        //gtr.translation().xy() + max_dir,
+                        //Color::srgb(1., 0., 0.),
+                        //);
+                    }
                 }
             }
         }

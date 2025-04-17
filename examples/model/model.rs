@@ -114,7 +114,7 @@ fn map_ik(
                 .with_epsilon(0.001)
                 .with_joint_constraints(vec![
                     (left_arm, JointConstraint::new(0., PI / 2.)),
-                    (left_forearm, JointConstraint::new(0., PI)),
+                    (left_forearm, JointConstraint::new(0., PI - 0.1)),
                     (left_hand, JointConstraint::new(PI / 4., PI / 4.)),
                 ]),
         ));
@@ -131,7 +131,7 @@ fn map_ik(
         .with_epsilon(0.001)
         .with_joint_constraints(vec![
             (right_arm, JointConstraint::new(PI / 2., 0.)),
-            (right_forearm, JointConstraint::new(PI, 0.)),
+            (right_forearm, JointConstraint::new(PI - 0.1, 0.)),
             (right_hand, JointConstraint::new(PI / 4., PI / 4.)),
         ]),));
 }
