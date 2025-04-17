@@ -484,6 +484,7 @@ pub fn map_new_ik(
 fn debug_ik(
     ik_constraints: Query<&IKConstraint>,
     transforms: Query<&GlobalTransform>,
+    parents: Query<&Parent>,
     mut gizmos: Gizmos,
     debug: Option<Res<DebugIK>>,
 ) {
@@ -526,24 +527,29 @@ fn debug_ik(
                             Rot2::radians(diff_from_rest) * dir,
                             Color::srgb(1., 0., 0.),
                         );
+
+                        let parent_rot = match parents.get(e) {
+                            Ok(parent) => transforms.get(**parent).unwrap().rotation(),
+                            Err(_) => transforms.get(e).unwrap().rotation(),
+                        };
+
+                        // we dont want the arc to rotate with its entity
+                        // so its based on the parent's rotation (if any)
+                        let parent_diff_from_rest = parent_rot.to_euler(EulerRot::ZXY).0
+                            - rest_rot.to_euler(EulerRot::ZXY).0;
+
                         gizmos.arc_2d(
                             Isometry2d {
                                 translation: gtr.translation().xy(),
                                 rotation: Rot2::radians(-cw)
                                     * Rot2::radians(rest_angle - FRAC_PI_2)
-                                    * Rot2::radians(diff_from_rest),
+                                    * Rot2::radians(parent_diff_from_rest),
                                 ..default()
                             },
                             cw + ccw,
                             len,
                             Color::srgb(1., 0.5, 0.),
                         );
-                        //gizmos.short_arc_2d_between(
-                        //gtr.translation().xy(),
-                        //gtr.translation().xy() + min_dir,
-                        //gtr.translation().xy() + max_dir,
-                        //Color::srgb(1., 0., 0.),
-                        //);
                     }
                 }
             }
