@@ -513,45 +513,52 @@ fn debug_ik(
             }
 
             if let Some(len) = debug.constraints {
-                if let Some(&JointConstraint { cw, ccw }) = constraint.joint_constraints.get(&e) {
-                    if let Some(rest_rot) = constraint.rest_data.get(&e) {
-                        let rest_angle = constraint.joint_data.get(&e).unwrap().angle;
-                        let rest_rot = constraint.rest_data.get(&e).unwrap();
-                        let dir = Vec2::from_angle(rest_angle) * len;
+                let Some(&JointConstraint { cw, ccw }) = constraint.joint_constraints.get(&e)
+                else {
+                    continue;
+                };
+                let Some(rest_rot) = constraint.rest_data.get(&e) else {
+                    continue;
+                };
+                let Some(&JointRest { angle: rest_angle }) = constraint.joint_data.get(&e) else {
+                    continue;
+                };
 
-                        let diff_from_rest = gtr.rotation().to_euler(EulerRot::ZXY).0
-                            - rest_rot.to_euler(EulerRot::ZXY).0;
+                let dir = Vec2::from_angle(rest_angle) * len;
 
-                        gizmos.ray_2d(
-                            gtr.translation().xy(),
-                            Rot2::radians(diff_from_rest) * dir,
-                            Color::srgb(1., 0., 0.),
-                        );
+                let diff_from_rest =
+                    gtr.rotation().to_euler(EulerRot::ZXY).0 - rest_rot.to_euler(EulerRot::ZXY).0;
 
-                        let parent_rot = match parents.get(e) {
-                            Ok(parent) => transforms.get(**parent).unwrap().rotation(),
-                            Err(_) => transforms.get(e).unwrap().rotation(),
-                        };
+                gizmos.ray_2d(
+                    gtr.translation().xy(),
+                    Rot2::radians(diff_from_rest) * dir,
+                    Color::srgb(1., 0., 0.),
+                );
 
-                        // we dont want the arc to rotate with its entity
-                        // so its based on the parent's rotation (if any)
-                        let parent_diff_from_rest = parent_rot.to_euler(EulerRot::ZXY).0
-                            - rest_rot.to_euler(EulerRot::ZXY).0;
+                let parent_rot = match parents.get(e) {
+                    Ok(parent) => transforms.get(**parent).unwrap().rotation(),
+                    Err(_) => transforms.get(e).unwrap().rotation(),
+                };
 
-                        gizmos.arc_2d(
-                            Isometry2d {
-                                translation: gtr.translation().xy(),
-                                rotation: Rot2::radians(-cw)
-                                    * Rot2::radians(rest_angle - FRAC_PI_2)
-                                    * Rot2::radians(parent_diff_from_rest),
-                                ..default()
-                            },
-                            cw + ccw,
-                            len,
-                            Color::srgb(1., 0.5, 0.),
-                        );
-                    }
-                }
+                // we dont want the arc to rotate with its entity
+                // so its based on the parent's rotation (if any)
+                let parent_diff_from_rest =
+                    parent_rot.to_euler(EulerRot::ZXY).0 - rest_rot.to_euler(EulerRot::ZXY).0;
+
+                gizmos.arc_2d(
+                    Isometry2d {
+                        translation: gtr.translation().xy(),
+                        //                      -cw because the arc is drawn counter clockwise
+                        rotation: Rot2::radians(-cw)
+                            //                           FRAC_PI_2  bc the arc is drawn starting from Vec2::Y
+                            * Rot2::radians(rest_angle - FRAC_PI_2)
+                            * Rot2::radians(parent_diff_from_rest),
+                        ..default()
+                    },
+                    cw + ccw,
+                    len,
+                    Color::srgb(1., 0.5, 0.),
+                );
             }
         }
     }
