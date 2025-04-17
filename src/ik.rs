@@ -515,20 +515,23 @@ fn debug_ik(
                 if let Some(&JointConstraint { cw, ccw }) = constraint.joint_constraints.get(&e) {
                     if let Some(rest_rot) = constraint.rest_data.get(&e) {
                         let rest_angle = constraint.joint_data.get(&e).unwrap().angle;
+                        let rest_rot = constraint.rest_data.get(&e).unwrap();
                         let dir = Vec2::from_angle(rest_angle) * len;
-                        let min_dir = (Vec2::from_angle(-cw)).rotate(dir);
-                        let max_dir = (Vec2::from_angle(ccw)).rotate(dir);
 
-                        let rotation = Mat2::from_angle(
-                            (gtr.rotation() * *rest_rot).to_euler(EulerRot::ZXY).0,
+                        let diff_from_rest = gtr.rotation().to_euler(EulerRot::ZXY).0
+                            - rest_rot.to_euler(EulerRot::ZXY).0;
+
+                        gizmos.ray_2d(
+                            gtr.translation().xy(),
+                            Rot2::radians(diff_from_rest) * dir,
+                            Color::srgb(1., 0., 0.),
                         );
-
-                        gizmos.ray_2d(gtr.translation().xy(), dir, Color::srgb(1., 0., 0.));
                         gizmos.arc_2d(
                             Isometry2d {
                                 translation: gtr.translation().xy(),
                                 rotation: Rot2::radians(-cw)
-                                    * Rot2::radians(rest_angle - FRAC_PI_2),
+                                    * Rot2::radians(rest_angle - FRAC_PI_2)
+                                    * Rot2::radians(diff_from_rest),
                                 ..default()
                             },
                             cw + ccw,
