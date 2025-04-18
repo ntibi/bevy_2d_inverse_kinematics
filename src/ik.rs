@@ -542,8 +542,20 @@ fn debug_ik(
 
                 // we dont want the arc to rotate with its entity
                 // so its based on the parent's rotation (if any)
-                let parent_diff_from_rest =
-                    parent_rot.to_euler(EulerRot::ZXY).0 - rest_rot.to_euler(EulerRot::ZXY).0;
+                let parent_diff_from_rest = Quat::from_rotation_arc_2d(
+                    Vec2::from_angle(rest_rot.to_euler(EulerRot::ZXY).0),
+                    Vec2::from_angle(parent_rot.to_euler(EulerRot::ZXY).0),
+                )
+                .to_euler(EulerRot::ZXY)
+                .0;
+
+                //println!("{}", e);
+                //println!("\t\trest rotation {}", rest_rot.to_euler(EulerRot::ZXY).0);
+                //println!(
+                //"\t\tparent rotation {}",
+                //parent_rot.to_euler(EulerRot::ZXY).0
+                //);
+                //println!("\t\tdiff from rest {}", parent_diff_from_rest);
 
                 gizmos.arc_2d(
                     Isometry2d {
