@@ -25,8 +25,10 @@ impl Plugin for IKPlugin {
 pub struct DebugIK {
     /// size of the circle to draw on joints
     pub joints: Option<f32>,
-    /// wether to draw bones
+    /// draw ik bones
     pub bones: bool,
+    /// draw ik joint constraints
+    pub constraints: Option<f32>,
 }
 
 impl Default for DebugIK {
@@ -34,6 +36,7 @@ impl Default for DebugIK {
         Self {
             joints: Some(0.1),
             bones: true,
+            constraints: Some(0.1),
         }
     }
 }
@@ -131,6 +134,11 @@ pub struct IKConstraint {
     /// it will get computed automatically when the chain is created
     pub rest_data: HashMap<Entity, Quat>,
 
+    /// z rotation of the parent of the anchor at rest
+    /// it's used to compute the relative angle of the anchor
+    /// it will get computed automatically when the chain is created
+    pub anchor_parent_rest_rot: f32,
+
     // joint data for each joint in the chain
     pub joint_constraints: HashMap<Entity, JointConstraint>,
 
@@ -153,6 +161,7 @@ impl IKConstraint {
             joint_data: HashMap::new(),
             joint_constraints: HashMap::new(),
             rest_data: HashMap::new(),
+            anchor_parent_rest_rot: 0.0,
         }
     }
 
@@ -279,8 +288,10 @@ impl IKConstraint {
                     .to_euler(EulerRot::ZXY)
                     .0;
 
-                Vec2::from_angle(self.joint_data.get(anchor).unwrap().angle)
-                    .rotate(Vec2::from_angle(parent_z_rot))
+                Vec2::from_angle(
+                    self.joint_data.get(anchor).unwrap().angle + parent_z_rot
+                        - self.anchor_parent_rest_rot,
+                )
             }
             Err(_) => Vec2::from_angle(self.joint_data.get(anchor).unwrap().angle),
         };
@@ -426,8 +437,22 @@ pub fn solve_ik(
 pub fn map_new_ik(
     mut ik_constraints: Query<&mut IKConstraint, Added<IKConstraint>>,
     transforms: Query<(&Transform, &GlobalTransform)>,
+    parents: Query<&Parent>,
 ) {
     for mut ik in &mut ik_constraints {
+        ik.anchor_parent_rest_rot = match parents.get(*ik.chain.first().unwrap()) {
+            Ok(parent) => {
+                transforms
+                    .get(**parent)
+                    .unwrap()
+                    .1
+                    .rotation()
+                    .to_euler(EulerRot::ZXY)
+                    .0
+            }
+            Err(_) => 0.0,
+        };
+
         // cache all the transforms
         // it might be useless perf wise, but it avoid a lot of unwraps
         match ik
@@ -501,8 +526,10 @@ fn debug_ik(
                     .to_euler(EulerRot::ZXY)
                     .0;
 
-                Vec2::from_angle(constraint.joint_data.get(anchor).unwrap().angle)
-                    .rotate(Vec2::from_angle(parent_z_rot))
+                Vec2::from_angle(
+                    constraint.joint_data.get(anchor).unwrap().angle + parent_z_rot
+                        - constraint.anchor_parent_rest_rot,
+                )
             }
             Err(_) => Vec2::from_angle(constraint.joint_data.get(anchor).unwrap().angle),
         };
