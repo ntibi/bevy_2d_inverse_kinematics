@@ -21,7 +21,7 @@ cute frog procedurally walking with IK animated legs
 cargo run --example frog
 ```
 
-equally cute frog from a gltf model with a single arm that follows the mouse
+human looking voxel model with arms that follows the mouse
 ```
 cargo run --example model
 ```
