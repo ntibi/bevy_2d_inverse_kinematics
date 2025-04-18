@@ -41,6 +41,25 @@ impl Default for DebugIK {
     }
 }
 
+impl DebugIK {
+    /// *scale* is the size of the gizmos
+    pub fn all(scale: f32) -> Self {
+        Self {
+            joints: Some(scale / 2.),
+            bones: false,
+            constraints: Some(scale),
+        }
+    }
+
+    pub fn none() -> Self {
+        Self {
+            joints: None,
+            bones: false,
+            constraints: None,
+        }
+    }
+}
+
 /// length constraint of a bone (which is a relation between two `Joint`s)
 #[derive(Clone, Debug, Reflect)]
 pub struct Bone {
