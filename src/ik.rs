@@ -491,6 +491,24 @@ fn debug_ik(
     let Some(debug) = debug else { return };
 
     for constraint in ik_constraints.iter() {
+        let anchor = constraint.chain.first().unwrap();
+        let anchor_dir = match parents.get(*anchor) {
+            Ok(parent) => {
+                let parent_z_rot = transforms
+                    .get(**parent)
+                    .unwrap()
+                    .rotation()
+                    .to_euler(EulerRot::ZXY)
+                    .0;
+
+                Vec2::from_angle(constraint.joint_data.get(anchor).unwrap().angle)
+                    .rotate(Vec2::from_angle(parent_z_rot))
+            }
+            Err(_) => Vec2::from_angle(constraint.joint_data.get(anchor).unwrap().angle),
+        };
+
+        let mut prev_dir = anchor_dir;
+
         for i in 0..constraint.chain.len() {
             let e = constraint.chain[i];
             let next = constraint.chain.get(i + 1);
@@ -502,14 +520,16 @@ fn debug_ik(
             if let Some(joint) = debug.joints {
                 gizmos.circle_2d(gtr.translation().xy(), joint, Color::srgb(0., 1., 0.));
             }
-            if let Some(next) = next {
-                if debug.bones {
-                    gizmos.line_2d(
-                        gtr.translation().xy(),
-                        transforms.get(*next).unwrap().translation().xy(),
-                        Color::srgb(0., 1., 0.),
-                    );
-                }
+            let Some(next) = next else {
+                continue;
+            };
+
+            if debug.bones {
+                gizmos.line_2d(
+                    gtr.translation().xy(),
+                    transforms.get(*next).unwrap().translation().xy(),
+                    Color::srgb(0., 1., 0.),
+                );
             }
 
             if let Some(len) = debug.constraints {
@@ -524,38 +544,23 @@ fn debug_ik(
                     continue;
                 };
 
-                let dir = Vec2::from_angle(rest_angle) * len;
+                let arc_dir = Vec2::from_angle(rest_angle) * len;
 
                 let diff_from_rest =
                     gtr.rotation().to_euler(EulerRot::ZXY).0 - rest_rot.to_euler(EulerRot::ZXY).0;
 
                 gizmos.ray_2d(
                     gtr.translation().xy(),
-                    Rot2::radians(diff_from_rest) * dir,
+                    Rot2::radians(diff_from_rest) * arc_dir,
                     Color::srgb(1., 0., 0.),
                 );
 
-                let parent_rot = match parents.get(e) {
-                    Ok(parent) => transforms.get(**parent).unwrap().rotation(),
-                    Err(_) => transforms.get(e).unwrap().rotation(),
-                };
+                let bone_dir = (transforms.get(*next).unwrap().translation().xy()
+                    - gtr.translation().xy())
+                .normalize();
+                let angle_offset = prev_dir.angle_to(bone_dir);
 
-                // we dont want the arc to rotate with its entity
-                // so its based on the parent's rotation (if any)
-                let parent_diff_from_rest = Quat::from_rotation_arc_2d(
-                    Vec2::from_angle(rest_rot.to_euler(EulerRot::ZXY).0),
-                    Vec2::from_angle(parent_rot.to_euler(EulerRot::ZXY).0),
-                )
-                .to_euler(EulerRot::ZXY)
-                .0;
-
-                //println!("{}", e);
-                //println!("\t\trest rotation {}", rest_rot.to_euler(EulerRot::ZXY).0);
-                //println!(
-                //"\t\tparent rotation {}",
-                //parent_rot.to_euler(EulerRot::ZXY).0
-                //);
-                //println!("\t\tdiff from rest {}", parent_diff_from_rest);
+                prev_dir = bone_dir.normalize();
 
                 gizmos.arc_2d(
                     Isometry2d {
@@ -564,7 +569,9 @@ fn debug_ik(
                         rotation: Rot2::radians(-cw)
                             //                           FRAC_PI_2  bc the arc is drawn starting from Vec2::Y
                             * Rot2::radians(rest_angle - FRAC_PI_2)
-                            * Rot2::radians(parent_diff_from_rest),
+                            * Rot2::radians(diff_from_rest)
+                            //              -angle_offset to remove the impact of the rotation of the bone from the arc (which shouldnt turn with the bone)
+                            * Rot2::radians(-angle_offset),
                         ..default()
                     },
                     cw + ccw,
