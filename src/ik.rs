@@ -34,9 +34,9 @@ pub struct DebugIK {
 impl Default for DebugIK {
     fn default() -> Self {
         Self {
-            joints: Some(0.1),
-            bones: true,
-            constraints: Some(0.1),
+            joints: None,
+            bones: false,
+            constraints: None,
         }
     }
 }
