@@ -116,6 +116,7 @@ fn map_ik(
                     (left_arm, JointConstraint::new(0., PI / 2.)),
                     (left_forearm, JointConstraint::new(0., PI - 0.1)),
                     (left_hand, JointConstraint::new(PI / 4., PI / 4.)),
+                    (left_hand_effector, JointConstraint::new(0., 0.)),
                 ]),
         ));
 
@@ -133,6 +134,7 @@ fn map_ik(
             (right_arm, JointConstraint::new(PI / 2., 0.)),
             (right_forearm, JointConstraint::new(PI - 0.1, 0.)),
             (right_hand, JointConstraint::new(PI / 4., PI / 4.)),
+            (right_hand_effector, JointConstraint::new(0., 0.)),
         ]),));
 }
 
