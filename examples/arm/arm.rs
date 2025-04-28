@@ -76,8 +76,8 @@ fn update_target(
         return;
     }
 
-    let (camera, camera_transform) = camera.single();
-    let window = window.single();
+    let (camera, camera_transform) = camera.single().unwrap();
+    let window = window.single().unwrap();
 
     if let Some(pos) = window
         .cursor_position()

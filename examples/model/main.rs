@@ -1,5 +1,6 @@
 use bevy::{input::mouse::AccumulatedMouseScroll, prelude::*, render::camera::ScalingMode};
 use bevy_2d_inverse_kinematics::IKPlugin;
+use bevy_egui::EguiPlugin;
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use model::RiggedModelPlugin;
 
@@ -17,6 +18,9 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins.build())
         .add_plugins(MeshPickingPlugin)
+        .add_plugins(EguiPlugin {
+            enable_multipass_for_primary_context: false,
+        })
         .add_plugins(WorldInspectorPlugin::new())
         .add_plugins(IKPlugin)
         .add_plugins(RiggedModelPlugin)
@@ -44,10 +48,10 @@ fn setup(mut commands: Commands) {
 }
 
 fn zoom(
-    camera: Single<&mut Projection, With<Camera>>,
+    mut camera: Single<&mut Projection, With<Camera>>,
     mouse_wheel_input: Res<AccumulatedMouseScroll>,
 ) {
-    match *camera.into_inner() {
+    match **camera {
         Projection::Orthographic(ref mut orthographic) => {
             let delta_zoom = -mouse_wheel_input.delta.y * ZOOM_SPEED;
             let multiplicative_zoom = 1. + delta_zoom;
@@ -59,6 +63,7 @@ fn zoom(
 
             perspective.fov = perspective.fov + delta_zoom;
         }
+        _ => panic!("custom projection is not supported"),
     }
 }
 
@@ -67,7 +72,7 @@ fn translate(
     keyboard_input: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
 ) {
-    let mut transform = camera_query.single_mut();
+    let mut transform = camera_query.single_mut().unwrap();
 
     if keyboard_input.pressed(KeyCode::ArrowUp) {
         transform.translation =

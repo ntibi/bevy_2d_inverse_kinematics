@@ -1,4 +1,4 @@
-use bevy::{ecs::query::QueryEntityError, prelude::*, utils::HashMap};
+use bevy::{ecs::query::QueryEntityError, platform::collections::HashMap, prelude::*};
 use std::f32::consts::{FRAC_PI_2, PI};
 
 /// add this plugin to your app to have IK constraints solved every frame
@@ -221,13 +221,13 @@ impl IKConstraint {
         &self,
         entity: Entity,
         pos: Vec2,
-        parents: &Query<&Parent>,
+        parents: &Query<&ChildOf>,
         transforms: &mut Query<(&mut GlobalTransform, &mut Transform)>,
     ) {
         match parents.get(entity) {
             Ok(parent) => {
                 if let Ok([(mut gtr, mut tr), (parent_gtr, _)]) =
-                    transforms.get_many_mut([entity, **parent])
+                    transforms.get_many_mut([entity, parent.parent()])
                 {
                     let new_global_tr = GlobalTransform::from(Transform {
                         translation: pos.extend(gtr.translation().z),
@@ -253,7 +253,7 @@ impl IKConstraint {
         &self,
         entity: Entity,
         rot: f32,
-        parents: &Query<&Parent>,
+        parents: &Query<&ChildOf>,
         transforms: &mut Query<(&mut GlobalTransform, &mut Transform)>,
     ) {
         let base_rot = self.rest_data.get(&entity).unwrap();
@@ -263,7 +263,7 @@ impl IKConstraint {
         match parents.get(entity) {
             Ok(parent) => {
                 if let Ok([(mut gtr, mut tr), (parent_gtr, _)]) =
-                    transforms.get_many_mut([entity, **parent])
+                    transforms.get_many_mut([entity, parent.parent()])
                 {
                     let new_global_tr = GlobalTransform::from(Transform {
                         translation: gtr.translation(),
@@ -308,7 +308,7 @@ impl IKConstraint {
     fn solve_iteration(
         &self,
         target: Vec2,
-        parents: &Query<&Parent>,
+        parents: &Query<&ChildOf>,
         transforms: &mut Query<(&mut GlobalTransform, &mut Transform)>,
     ) {
         let effector = self.chain.last().unwrap();
@@ -320,7 +320,7 @@ impl IKConstraint {
         let anchor_dir = match parents.get(*anchor) {
             Ok(parent) => {
                 let parent_z_rot = transforms
-                    .get(**parent)
+                    .get(parent.parent())
                     .unwrap()
                     .0
                     .rotation()
@@ -425,7 +425,7 @@ impl IKConstraint {
     fn solve(
         &self,
         target: Vec2,
-        parents: &Query<&Parent>,
+        parents: &Query<&ChildOf>,
         transforms: &mut Query<(&mut GlobalTransform, &mut Transform)>,
     ) {
         let effector = self.chain.last().unwrap();
@@ -447,7 +447,7 @@ impl IKConstraint {
 
 pub fn solve_ik(
     ik_constraints: Query<&IKConstraint>,
-    parents: Query<&Parent>,
+    parents: Query<&ChildOf>,
     mut transforms: Query<(&mut GlobalTransform, &mut Transform)>,
 ) {
     for constraint in ik_constraints.iter() {
@@ -471,13 +471,13 @@ pub fn solve_ik(
 pub fn map_new_ik(
     mut ik_constraints: Query<&mut IKConstraint, Added<IKConstraint>>,
     transforms: Query<(&Transform, &GlobalTransform)>,
-    parents: Query<&Parent>,
+    parents: Query<&ChildOf>,
 ) {
     for mut ik in &mut ik_constraints {
         ik.anchor_parent_rest_rot = match parents.get(*ik.chain.first().unwrap()) {
             Ok(parent) => {
                 transforms
-                    .get(**parent)
+                    .get(parent.parent())
                     .unwrap()
                     .1
                     .rotation()
@@ -543,7 +543,7 @@ pub fn map_new_ik(
 fn debug_ik(
     ik_constraints: Query<&IKConstraint>,
     transforms: Query<&GlobalTransform>,
-    parents: Query<&Parent>,
+    parents: Query<&ChildOf>,
     mut gizmos: Gizmos,
     debug: Option<Res<DebugIK>>,
 ) {
@@ -554,7 +554,7 @@ fn debug_ik(
         let anchor_dir = match parents.get(*anchor) {
             Ok(parent) => {
                 let parent_z_rot = transforms
-                    .get(**parent)
+                    .get(parent.parent())
                     .unwrap()
                     .rotation()
                     .to_euler(EulerRot::ZXY)

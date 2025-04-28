@@ -19,8 +19,8 @@ opt-level = 1
 opt-level = 3
 
 [dependencies]
-bevy = { version = "0.15.0" }
+bevy = { version = "0.16.0" }
 
 [dev-dependencies]
-bevy_egui = "0.33"
-bevy-inspector-egui = { version = "0.30.0", default-features = true }
+bevy_egui = "0.34.1"
+bevy-inspector-egui = { version = "0.31.0", default-features = true }

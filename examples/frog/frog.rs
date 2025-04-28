@@ -299,7 +299,7 @@ fn move_animal(mut query: Query<(&mut Transform, &Velocity, &AngularVelocity)>, 
 fn compute_foot_placement(
     // TODO use agent velocity dir to offset foot zone
     _agent: Query<(&Transform, &Velocity), With<AnimalThingy>>,
-    mut foot_zones: Query<(&GlobalTransform, &FootZone, &Parent)>,
+    mut foot_zones: Query<(&GlobalTransform, &FootZone, &ChildOf)>,
     mut effectors: Query<(&mut IKConstraint, &GlobalTransform)>,
     mut gizmos: Gizmos,
     keyboard_input: Res<ButtonInput<KeyCode>>,
@@ -342,8 +342,8 @@ fn update_target(
         return;
     }
 
-    let (camera, camera_transform) = camera.single();
-    let window = window.single();
+    let (camera, camera_transform) = camera.single().unwrap();
+    let window = window.single().unwrap();
 
     if let Some(pos) = window
         .cursor_position()

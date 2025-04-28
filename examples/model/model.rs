@@ -86,7 +86,7 @@ fn map_ik(
 ) {
     let [left_arm, left_forearm, left_hand, left_hand_effector, right_arm, right_forearm, right_hand, right_hand_effector] =
         match get_bones(
-            trigger.entity(),
+            trigger.target(),
             [
                 "left arm bone",
                 "left forearm bone",
@@ -100,7 +100,7 @@ fn map_ik(
             &query,
         ) {
             None => {
-                warn!("skipping IK mapping for {}", trigger.entity());
+                warn!("skipping IK mapping for {}", trigger.target());
                 return;
             }
             Some(bones) => bones,
@@ -148,8 +148,8 @@ fn update_target(
         return;
     }
 
-    let (camera, camera_transform) = camera.single();
-    let window = window.single();
+    let (camera, camera_transform) = camera.single().unwrap();
+    let window = window.single().unwrap();
 
     if let Some(pos) = window
         .cursor_position()
