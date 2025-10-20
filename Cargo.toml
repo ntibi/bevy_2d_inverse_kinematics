@@ -1,6 +1,6 @@
 [package]
 name = "bevy_2d_inverse_kinematics"
-version = "0.4.0"
+version = "0.5.0"
 edition = "2021"
 description = "A 2D inverse kinematics plugin for Bevy"
 repository = "https://github.com/ntibi/bevy_2d_inverse_kinematics"
@@ -19,8 +19,8 @@ opt-level = 1
 opt-level = 3
 
 [dependencies]
-bevy = { version = "0.16.0" }
+bevy = { version = "0.17.2" }
 
 [dev-dependencies]
-bevy_egui = "0.34.1"
-bevy-inspector-egui = { version = "0.31.0", default-features = true }
+bevy_egui = "0.38.0"
+bevy-inspector-egui = { version = "0.34.0", default-features = true }

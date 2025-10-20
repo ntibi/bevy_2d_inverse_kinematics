@@ -1,4 +1,7 @@
-use bevy::{ecs::query::QueryEntityError, platform::collections::HashMap, prelude::*};
+use bevy::{
+    ecs::query::QueryEntityError, platform::collections::HashMap, prelude::*,
+    transform::plugins::TransformSystems,
+};
 use std::f32::consts::{FRAC_PI_2, PI};
 
 /// add this plugin to your app to have IK constraints solved every frame
@@ -10,7 +13,7 @@ impl Plugin for IKPlugin {
             PostUpdate,
             (map_new_ik, solve_ik, debug_ik)
                 .chain()
-                .after(TransformSystem::TransformPropagate),
+                .after(TransformSystems::Propagate),
         )
         .register_type::<DebugIK>()
         .register_type::<Bone>()

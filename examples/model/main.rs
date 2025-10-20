@@ -18,9 +18,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins.build())
         .add_plugins(MeshPickingPlugin)
-        .add_plugins(EguiPlugin {
-            enable_multipass_for_primary_context: false,
-        })
+        .add_plugins(EguiPlugin::default())
         .add_plugins(WorldInspectorPlugin::new())
         .add_plugins(IKPlugin)
         .add_plugins(RiggedModelPlugin)
